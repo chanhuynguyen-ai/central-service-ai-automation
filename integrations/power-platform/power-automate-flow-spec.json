@@ -1,0 +1,39 @@
+{
+  "name": "CentralOps - Request Approval",
+  "purpose": "Route AI-triaged employee requests to a human approver and notify the requester.",
+  "trigger": {
+    "connector": "CentralOps AI",
+    "operation": "SubmitServiceRequest"
+  },
+  "steps": [
+    {
+      "order": 1,
+      "action": "Start and wait for an approval",
+      "approval_type": "Approve/Reject - First to respond",
+      "assigned_to": "service owner selected from category routing table",
+      "details": "reference, AI summary, priority, confidence, requester, and original description"
+    },
+    {
+      "order": 2,
+      "action": "Condition",
+      "expression": "Approval outcome equals Approve"
+    },
+    {
+      "order": 3,
+      "branch": "yes",
+      "actions": ["Call secured decision endpoint", "Send approval email", "Record run result"]
+    },
+    {
+      "order": 4,
+      "branch": "no",
+      "actions": ["Call secured rejection endpoint", "Send rejection email", "Record run result"]
+    },
+    {
+      "order": 5,
+      "action": "Error scope",
+      "actions": ["Record failed run", "Notify automation owner", "Preserve correlation reference"]
+    }
+  ],
+  "human_in_the_loop": true,
+  "monitoring": ["run status", "duration", "failure reason", "request reference"]
+}

@@ -1,0 +1,56 @@
+services:
+  database:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: centralops
+      POSTGRES_USER: centralops
+      POSTGRES_PASSWORD: centralops-local
+    volumes:
+      - centralops_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U centralops -d centralops"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://centralops:centralops-local@database:5432/centralops
+      JWT_SECRET: local-docker-secret-change-before-production
+      INTEGRATION_API_KEY: centralops-local-integration-key
+      CORS_ORIGINS: '["http://localhost:3000"]'
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      LLM_MODEL: ${LLM_MODEL:-llama3.2:3b}
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://ollama:11434}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      database:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["ollama"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - centralops_ollama:/root/.ollama
+
+volumes:
+  centralops_postgres:
+  centralops_ollama:

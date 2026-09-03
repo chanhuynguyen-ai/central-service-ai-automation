@@ -1,0 +1,167 @@
+swagger: "2.0"
+info:
+  title: CentralOps AI
+  description: Submit and monitor AI-assisted employee service requests.
+  version: "1.0"
+host: localhost:8000
+basePath: /api/v1/integrations/power-platform
+schemes:
+  - http
+consumes:
+  - application/json
+produces:
+  - application/json
+securityDefinitions:
+  api_key:
+    type: apiKey
+    name: X-Integration-Key
+    in: header
+security:
+  - api_key: []
+paths:
+  /intake:
+    post:
+      operationId: SubmitServiceRequest
+      summary: Submit an employee request for AI triage
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/ServiceRequestInput"
+      responses:
+        "201":
+          description: Request created
+          schema:
+            $ref: "#/definitions/ServiceRequest"
+  /requests/{reference}:
+    get:
+      operationId: GetServiceRequest
+      summary: Read request status
+      parameters:
+        - in: path
+          name: reference
+          required: true
+          type: string
+      responses:
+        "200":
+          description: Current request
+          schema:
+            $ref: "#/definitions/ServiceRequest"
+  /requests/{reference}/decision:
+    post:
+      operationId: DecideServiceRequest
+      summary: Record a human approval decision
+      parameters:
+        - in: path
+          name: reference
+          required: true
+          type: string
+        - in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/ApprovalDecision"
+      responses:
+        "200":
+          description: Updated request
+          schema:
+            $ref: "#/definitions/ServiceRequest"
+  /analytics-feed:
+    get:
+      operationId: GetAnalyticsFeed
+      summary: Read flattened service operations data
+      parameters:
+        - in: query
+          name: limit
+          type: integer
+          default: 500
+          minimum: 1
+          maximum: 5000
+      responses:
+        "200":
+          description: Analytics records
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/AnalyticsRow"
+definitions:
+  ServiceRequestInput:
+    type: object
+    required: [requester_email, title, description]
+    properties:
+      requester_email:
+        type: string
+        format: email
+      title:
+        type: string
+      description:
+        type: string
+      category:
+        type: string
+      priority:
+        type: string
+        enum: [low, medium, high, urgent]
+      source_record_id:
+        type: string
+  ServiceRequest:
+    type: object
+    properties:
+      id:
+        type: integer
+      reference:
+        type: string
+      title:
+        type: string
+      category:
+        type: string
+      priority:
+        type: string
+      status:
+        type: string
+      ai_summary:
+        type: string
+      ai_confidence:
+        type: number
+        format: float
+  ApprovalDecision:
+    type: object
+    required: [approver_email, decision]
+    properties:
+      approver_email:
+        type: string
+        format: email
+      decision:
+        type: string
+        enum: [approve, reject]
+      comment:
+        type: string
+  AnalyticsRow:
+    type: object
+    properties:
+      reference:
+        type: string
+      title:
+        type: string
+      department:
+        type: string
+      category:
+        type: string
+      priority:
+        type: string
+      status:
+        type: string
+      submitted_at:
+        type: string
+        format: date-time
+      due_at:
+        type: string
+        format: date-time
+      completed_at:
+        type: string
+        format: date-time
+      ai_confidence:
+        type: number
+        format: float
+      within_sla:
+        type: boolean

@@ -1,0 +1,11 @@
+reference,title,department,category,priority,status,submitted_at,due_at,completed_at,ai_confidence,within_sla
+CSR-1048,VPN access for new finance analyst,Finance,access_request,high,pending_approval,2026-09-03T02:10:00Z,2026-09-03T10:10:00Z,,0.96,true
+CSR-1047,Replace damaged barcode scanner,Warehouse,it_support,high,in_progress,2026-09-03T01:40:00Z,2026-09-03T09:40:00Z,,0.91,true
+CSR-1046,Update payroll bank information,Sales,hr_support,medium,completed,2026-09-02T22:30:00Z,2026-09-03T22:30:00Z,2026-09-03T03:30:00Z,0.94,true
+CSR-1045,Air conditioning issue in meeting room,Operations,facility,medium,in_progress,2026-09-02T20:00:00Z,2026-09-03T20:00:00Z,,0.89,true
+CSR-1044,Purchase approval for team headsets,Customer Service,procurement,low,rejected,2026-09-02T08:00:00Z,2026-09-05T08:00:00Z,2026-09-02T12:00:00Z,0.93,true
+CSR-1043,Reset locked email account,Marketing,access_request,urgent,completed,2026-09-02T07:00:00Z,2026-09-02T09:00:00Z,2026-09-02T07:35:00Z,0.95,true
+CSR-1042,Install approved design software,Marketing,it_support,medium,completed,2026-09-01T09:00:00Z,2026-09-02T09:00:00Z,2026-09-01T15:00:00Z,0.88,true
+CSR-1041,Create building access card,Human Resources,access_request,high,completed,2026-09-01T08:15:00Z,2026-09-01T16:15:00Z,2026-09-01T14:30:00Z,0.90,true
+CSR-1040,Repair printer on floor six,Finance,it_support,medium,completed,2026-08-31T05:00:00Z,2026-09-01T05:00:00Z,2026-09-01T07:20:00Z,0.86,false
+CSR-1039,Order ergonomic keyboard,Technology,procurement,low,in_progress,2026-08-30T04:00:00Z,2026-09-02T04:00:00Z,,0.84,false

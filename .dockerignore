@@ -1,0 +1,11 @@
+.git
+node_modules
+dist
+.next
+.wrangler
+.sites-runtime
+backend/.venv
+backend/__pycache__
+backend/.pytest_cache
+backend/centralops.db
+*.tar.gz
