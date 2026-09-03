@@ -1,21 +1,32 @@
+import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from app.api.router import api_router
 from app.core.config import settings
+from app.core.logging import configure_logging
+from app.core.middleware import RequestContextMiddleware
 from app.db.seed import seed_data
-from app.db.session import Base, SessionLocal, engine
-from app.schemas.schemas import HealthOut
+from app.db.session import SessionLocal, engine, get_db
+from app.schemas.schemas import HealthOut, ReadinessOut
+
+configure_logging()
+logger = logging.getLogger("centralops.startup")
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    Base.metadata.create_all(bind=engine)
-    with SessionLocal() as db:
-        seed_data(db)
+    # Schema creation belongs to Alembic. Startup only seeds an already-migrated database.
+    try:
+        with SessionLocal() as db:
+            seed_data(db)
+    except SQLAlchemyError:
+        logger.warning("database_not_migrated; run alembic upgrade head before serving traffic")
     yield
 
 
@@ -29,6 +40,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(RequestContextMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -46,6 +58,7 @@ def root() -> dict[str, str]:
         "version": settings.app_version,
         "docs": "/docs",
         "health": "/health",
+        "ready": "/ready",
     }
 
 
@@ -63,3 +76,15 @@ def health() -> HealthOut:
         llm_provider=settings.llm_provider,
         version=settings.app_version,
     )
+
+
+@app.get("/ready", response_model=ReadinessOut, tags=["Operations"])
+def ready(db: Session = Depends(get_db)) -> ReadinessOut:
+    try:
+        db.execute(text("SELECT 1 FROM users LIMIT 1"))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database is not ready",
+        ) from exc
+    return ReadinessOut(status="ready", database="ok", version=settings.app_version)
