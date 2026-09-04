@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     jwt_secret: str = "change-this-local-development-secret"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 480
+    refresh_token_expire_days: int = 14
 
     llm_provider: str = "mock"
     llm_model: str = "llama3.2:3b"
