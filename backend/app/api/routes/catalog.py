@@ -1,3 +1,5 @@
+from typing import NoReturn
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -28,7 +30,7 @@ from app.services.catalog import (
 router = APIRouter()
 
 
-def _raise_catalog_error(exc: Exception) -> None:
+def _raise_catalog_error(exc: Exception) -> NoReturn:
     if isinstance(exc, CatalogNotFoundError):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     if isinstance(exc, CatalogConflictError):
@@ -73,7 +75,6 @@ def create_type(
     except (CatalogNotFoundError, CatalogConflictError) as exc:
         db.rollback()
         _raise_catalog_error(exc)
-        raise AssertionError("unreachable")
 
 
 @router.patch("/request-types/{request_type_id}", response_model=RequestTypeOut)
@@ -91,7 +92,6 @@ def update_type(
     except (CatalogNotFoundError, CatalogConflictError) as exc:
         db.rollback()
         _raise_catalog_error(exc)
-        raise AssertionError("unreachable")
 
 
 @router.post(
@@ -113,7 +113,6 @@ def create_version(
     except (CatalogNotFoundError, CatalogConflictError) as exc:
         db.rollback()
         _raise_catalog_error(exc)
-        raise AssertionError("unreachable")
 
 
 @router.get(
@@ -130,7 +129,6 @@ def list_versions(
         return [RequestTypeVersionOut.model_validate(version) for version in versions]
     except CatalogNotFoundError as exc:
         _raise_catalog_error(exc)
-        raise AssertionError("unreachable")
 
 
 @router.patch(
@@ -152,7 +150,6 @@ def update_version(
     except (CatalogNotFoundError, CatalogConflictError) as exc:
         db.rollback()
         _raise_catalog_error(exc)
-        raise AssertionError("unreachable")
 
 
 @router.post(
@@ -173,4 +170,3 @@ def publish_version(
     except (CatalogNotFoundError, CatalogConflictError) as exc:
         db.rollback()
         _raise_catalog_error(exc)
-        raise AssertionError("unreachable")
