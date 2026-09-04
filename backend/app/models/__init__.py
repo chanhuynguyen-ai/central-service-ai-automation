@@ -1,6 +1,7 @@
 from app.models.models import (
     Approval,
     AuditEvent,
+    AuthSession,
     AutomationRun,
     Department,
     KnowledgeArticle,
@@ -15,6 +16,7 @@ from app.models.models import (
 __all__ = [
     "Approval",
     "AuditEvent",
+    "AuthSession",
     "AutomationRun",
     "Department",
     "KnowledgeArticle",
