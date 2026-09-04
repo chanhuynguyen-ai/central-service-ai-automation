@@ -99,6 +99,11 @@ def approval_decision(
     )
     if not request:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found")
+    if request.requester_id == approver.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Users cannot approve their own request",
+        )
     if request.status != "pending_approval":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Request is not pending approval"

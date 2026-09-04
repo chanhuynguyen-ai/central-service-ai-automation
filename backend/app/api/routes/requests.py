@@ -80,6 +80,11 @@ def decide_request(
     approver: User = Depends(require_roles("approver", "admin")),
 ) -> ServiceRequest:
     request = get_visible_request(db, request_id, approver)
+    if request.requester_id == approver.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Users cannot approve their own request",
+        )
     if request.status != "pending_approval":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Request is not pending approval"

@@ -127,6 +127,12 @@ class HealthOut(BaseModel):
     version: str
 
 
+class ReadinessOut(BaseModel):
+    status: str
+    database: str
+    version: str
+
+
 class PowerPlatformIntake(BaseModel):
     requester_email: EmailStr
     title: str = Field(min_length=5, max_length=180)

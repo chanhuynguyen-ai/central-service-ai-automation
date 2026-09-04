@@ -135,3 +135,52 @@ def test_power_automate_records_human_decision(client: TestClient) -> None:
     )
     assert response.status_code == 200
     assert response.json()["status"] == "in_progress"
+
+
+def test_readiness_and_request_id(client: TestClient) -> None:
+    response = client.get("/ready", headers={"X-Request-ID": "test-correlation-123"})
+    assert response.status_code == 200
+    assert response.json()["status"] == "ready"
+    assert response.headers["X-Request-ID"] == "test-correlation-123"
+
+
+def test_deactivated_user_cannot_login(client: TestClient) -> None:
+    from app.db.session import get_db
+    from app.models.models import User
+
+    db_provider = client.app.dependency_overrides[get_db]
+    db_generator = db_provider()
+    db = next(db_generator)
+    try:
+        user = db.query(User).filter(User.email == "employee@centralops.demo").first()
+        assert user is not None
+        user.is_active = False
+        db.commit()
+    finally:
+        db_generator.close()
+
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"email": "employee@centralops.demo", "password": "Employee123!"},
+    )
+    assert response.status_code == 401
+
+
+def test_approver_cannot_approve_own_request(client: TestClient) -> None:
+    headers = login(client, "approver")
+    created = client.post(
+        "/api/v1/requests",
+        headers=headers,
+        json={
+            "title": "Approver test request",
+            "description": "This request verifies that self approval is blocked by the API.",
+        },
+    )
+    assert created.status_code == 201
+
+    response = client.post(
+        f"/api/v1/requests/{created.json()['id']}/decision",
+        headers=headers,
+        json={"decision": "approve", "comment": "Should not be accepted."},
+    )
+    assert response.status_code == 403
