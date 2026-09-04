@@ -1,8 +1,8 @@
 import json
 import re
 from dataclasses import dataclass
-from typing import Literal
 from time import perf_counter
+from typing import Literal
 
 import httpx
 from pydantic import BaseModel, Field, ValidationError

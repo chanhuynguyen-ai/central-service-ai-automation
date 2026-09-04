@@ -1,9 +1,9 @@
 import csv
 import json
 from collections import Counter
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterable
 
 ALLOWED_PRIORITIES = {"low", "medium", "high", "urgent"}
 ALLOWED_STATUSES = {"pending_approval", "in_progress", "completed", "rejected", "cancelled"}
