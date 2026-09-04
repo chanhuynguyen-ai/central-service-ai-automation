@@ -21,6 +21,18 @@ Internal requests often arrive through chat or email with incomplete context. Se
 manually categorize them, find an approver, repeat policy answers, and assemble reports.
 CentralOps centralizes that work while keeping AI in an advisory role.
 
+## Current implementation status
+
+The repository already contains a useful POC for AI triage, policy assistance, analytics,
+Power Platform integration contracts, testing, and reviewer documentation. The core enterprise
+workflow is still intentionally being strengthened: versioned request types, dynamic forms,
+workflow instances, assigned approval tasks, and service-fulfillment records are the next major
+vertical slice.
+
+See [Implementation Status](docs/IMPLEMENTATION_STATUS.md) for the roadmap audit and
+[DKSH JD Alignment](docs/JD_ALIGNMENT_DKSH.md) for the internship-focused evidence plan.
+The original project source-of-truth is preserved under [`docs/project/`](docs/project/00_INDEX.md).
+
 ## Product capabilities
 
 | Area | What is implemented |
@@ -55,11 +67,12 @@ provider strategy, and deployment profiles.
 
 - **Backend:** Python 3.11+, FastAPI, SQLAlchemy 2, Pydantic, JWT, Argon2, HTTPX.
 - **Frontend:** React 19, TypeScript, responsive components, accessible dialogs and tables.
-- **Data:** SQLite for zero-setup development; PostgreSQL 16 in Docker.
+- **Data:** SQLite for zero-setup development; PostgreSQL 16 in Docker; Alembic migrations.
 - **AI:** deterministic test provider, Ollama local models, or OpenAI-compatible endpoints.
 - **Integration:** OpenAPI custom connector, Power Apps formulas, Power Automate flow spec,
   and Power BI model guidance.
-- **Delivery:** Docker Compose, GitHub Actions, Ruff, Pytest, and reproducible lockfiles.
+- **Infrastructure:** PostgreSQL, Redis, and MinIO/S3-compatible storage in Docker Compose.
+- **Delivery:** Docker Compose, GitHub Actions, Ruff, Pytest, and reproducible dependency files.
 
 ## Quick start with Docker
 
@@ -74,6 +87,8 @@ Open:
 - Web workspace: `http://localhost:3000`
 - FastAPI Swagger: `http://localhost:8000/docs`
 - API health: `http://localhost:8000/health`
+- API readiness: `http://localhost:8000/ready`
+- MinIO console: `http://localhost:9001`
 
 Stop the stack:
 
@@ -102,11 +117,12 @@ These accounts and passwords are local demo data. Never reuse them in a shared e
 cd backend
 cp ../.env.example .env
 uv sync --extra dev
+uv run alembic upgrade head
 uv run uvicorn app.main:app --reload --port 8000
 ```
 
-The default database is `backend/centralops.db`. Tables and synthetic demo records are
-created on the first start.
+The default database is `backend/centralops.db`. Alembic creates/updates the schema; the API
+then seeds synthetic demo records for local development.
 
 ### Frontend
 
@@ -186,6 +202,18 @@ npm run build
 Automated tests cover authentication, request validation, employee isolation, AI triage,
 human approval, grounded citations, management analytics, and Power Platform intake.
 
+### Data quality exercise
+
+The repository includes a small repeatable cleansing/validation flow that mirrors the internship
+requirement for data retrieval, cleansing, and basic analysis:
+
+```bash
+python3 scripts/clean_service_requests.py
+```
+
+It writes a normalized CSV and a JSON quality report under `data/generated/`, including issue
+records, category counts, and completed-request SLA compliance.
+
 ## Repository structure
 
 ```text
@@ -226,11 +254,15 @@ project to real employee data.
 
 ## Roadmap
 
-- Hybrid vector + keyword retrieval with offline quality evaluation.
-- SSO/OIDC and tenant-level authorization.
-- Background worker and retry queue for notifications and long-running LLM calls.
-- Versioned database migrations and OpenTelemetry traces.
-- Imported Power Apps solution and Power Automate package from a test tenant.
+The build order follows `docs/project/07_IMPLEMENTATION_PLAN.md`. The immediate priorities are:
+
+1. Versioned request catalog and dynamic request drafts.
+2. Deterministic workflow engine with manager/service approver resolvers.
+3. Approval-task inbox, audit timeline, and service fulfillment queue.
+4. Background worker, notifications, attachments, and SLA escalation.
+5. Schema-aware AI intake evaluation and policy-document RAG with pgvector/hybrid retrieval.
+6. Power Apps/Power Automate/Power BI tenant evidence for the automation-internship track.
+7. SSO/OIDC, OpenTelemetry, security hardening, and staged deployment.
 
 ## License
 

@@ -1,117 +1,34 @@
-# =====================================
-# Environment / Secrets
-# =====================================
+# JavaScript
+node_modules/
+dist/
+.next/
+.wrangler/
+.sites-runtime/
+npm-debug.log*
+*.tsbuildinfo
 
-.env
-.env.*
-!.env.example
-
-*.pem
-*.key
-*.p12
-*.pfx
-
-secrets/
-credentials/
-
-# =====================================
 # Python
-# =====================================
-
 __pycache__/
 *.py[cod]
-*$py.class
-
-.venv/
-venv/
-env/
-ENV/
-
 .pytest_cache/
-.mypy_cache/
 .ruff_cache/
-
-coverage.xml
 .coverage
 htmlcov/
+backend/.venv/
+backend/centralops.db
+backend/*.db
 
-# =====================================
-# Node / React
-# =====================================
-
-node_modules/
-
-dist/
-build/
-.next/
-out/
-
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# =====================================
-# IDE
-# =====================================
-
-.vscode/
-.idea/
-
-*.swp
-*.swo
-
-# =====================================
-# OS
-# =====================================
-
+# Environment and editor files
+.env
+.env.local
+!.env.example
 .DS_Store
-Thumbs.db
-desktop.ini
+.idea/
+.vscode/
 
-# =====================================
-# Logs
-# =====================================
+# Generated archives
+*.tar.gz
+*.zip
 
-logs/
-*.log
-
-# =====================================
-# Local databases
-# =====================================
-
-*.db
-*.sqlite
-*.sqlite3
-
-postgres-data/
-pgdata/
-
-# =====================================
-# Runtime / temp data
-# =====================================
-
-tmp/
-temp/
-cache/
-
-uploads/
-generated/
-
-# =====================================
-# AI / ML large files
-# =====================================
-
-*.pt
-*.pth
-*.ckpt
-*.bin
-*.onnx
-
-models/
-
-# =====================================
-# Docker local overrides
-# =====================================
-
-docker-compose.override.yml
+build/
+data/generated/
