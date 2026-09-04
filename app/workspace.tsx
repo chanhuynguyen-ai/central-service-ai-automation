@@ -94,12 +94,11 @@ const initialRequests: ServiceRequest[] = [
 const nav: Array<{
   label: string;
   icon: typeof Inbox;
-  count?: number;
   roles?: string[];
 }> = [
   { label: "Overview", icon: LayoutDashboard },
-  { label: "Requests", icon: Inbox, count: 12 },
-  { label: "Approvals", icon: CheckCircle2, count: 4, roles: ["APPROVER", "ADMIN"] },
+  { label: "Requests", icon: Inbox },
+  { label: "Approvals", icon: CheckCircle2, roles: ["APPROVER", "ADMIN"] },
   { label: "AI assistant", icon: Bot },
   { label: "Analytics", icon: BarChart3, roles: ["APPROVER", "ADMIN"] },
   { label: "Automation", icon: Workflow, roles: ["APPROVER", "ADMIN"] },
@@ -225,7 +224,7 @@ function LoginScreen({ onAuthenticated }: { onAuthenticated: (result: TokenRespo
 export default function Workspace() {
   const [activeNav, setActiveNav] = useState("Overview");
   const [mobileNav, setMobileNav] = useState(false);
-  const [requests, setRequests] = useState(initialRequests);
+  const [requests, setRequests] = useState<ServiceRequest[]>(apiConfigured ? [] : initialRequests);
   const [query, setQuery] = useState("");
   const [assistantInput, setAssistantInput] = useState("");
   const [assistantReply, setAssistantReply] = useState("I can explain policies, help classify a request, or show you where it is in the approval process.");
@@ -233,7 +232,12 @@ export default function Workspace() {
   const [refreshToken, setRefreshToken] = useState("");
   const [currentUser, setCurrentUser] = useState<ApiUser | null>(null);
   const [sessionReady, setSessionReady] = useState(!apiConfigured);
-  const [metrics, setMetrics] = useState({ open: 12, pending: 4, sla: 94.2, automation: 99.7, triage: 92.8 });
+  const [workspaceLoading, setWorkspaceLoading] = useState(apiConfigured);
+  const [workspaceError, setWorkspaceError] = useState("");
+  const [reloadNonce, setReloadNonce] = useState(0);
+  const [metrics, setMetrics] = useState(apiConfigured
+    ? { open: 0, pending: 0, sla: 0, automation: 0, triage: 0 }
+    : { open: 12, pending: 4, sla: 94.2, automation: 99.7, triage: 92.8 });
 
   function applySession(result: TokenResponse) {
     saveSession({
@@ -291,6 +295,8 @@ export default function Workspace() {
     if (!apiConfigured || !token || !currentUser) return;
 
     async function loadWorkspace() {
+      setWorkspaceLoading(true);
+      setWorkspaceError("");
       try {
         const requestResult = await listRequests(token);
         const mappedRequests = requestResult.items.map(mapApiRequest);
@@ -321,12 +327,19 @@ export default function Workspace() {
           } catch {
             resetSession();
           }
+        } else {
+          setRequests([]);
+          setWorkspaceError(cause instanceof Error
+            ? cause.message
+            : "Could not load live workspace data.");
         }
+      } finally {
+        setWorkspaceLoading(false);
       }
     }
 
     void loadWorkspace();
-  }, [token, refreshToken, currentUser]);
+  }, [token, refreshToken, currentUser, reloadNonce]);
 
   const visibleNav = useMemo(
     () => nav.filter((item) => !item.roles || userHasAnyRole(currentUser, ...item.roles)),
@@ -367,6 +380,18 @@ export default function Workspace() {
   const visibleRequests = activeNav === "Approvals"
     ? filteredRequests.filter((request) => request.status === "Pending approval")
     : filteredRequests;
+  const pendingRequestCount = requests.filter(
+    (request) => request.status === "Pending approval",
+  ).length;
+  const canViewOperationalAnalytics = !apiConfigured
+    || userHasAnyRole(currentUser, "APPROVER", "ADMIN");
+  const connectionStatus = workspaceError
+    ? { label: "API unavailable", style: "border-rose-200 bg-rose-50 text-rose-700", dot: "bg-rose-500" }
+    : workspaceLoading
+      ? { label: "Syncing live data", style: "border-amber-200 bg-amber-50 text-amber-700", dot: "bg-amber-500" }
+      : apiConfigured
+        ? { label: "Connected to API", style: "border-emerald-200 bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" }
+        : { label: "Interactive demo", style: "border-blue-200 bg-blue-50 text-blue-700", dot: "bg-blue-500" };
   const today = useMemo(
     () => new Intl.DateTimeFormat("en", { weekday: "long", day: "numeric", month: "long" }).format(new Date()),
     [],
@@ -438,7 +463,14 @@ export default function Workspace() {
       <aside className={`fixed inset-y-0 left-0 z-40 flex w-[252px] flex-col bg-[#071426] px-4 py-5 transition-transform lg:sticky lg:top-0 lg:h-screen ${mobileNav ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
         <div className="flex items-center justify-between px-2"><Logo /><Button variant="ghost" size="icon-sm" className="text-slate-300 lg:hidden" onClick={() => setMobileNav(false)}><X /></Button></div>
         <nav className="mt-9 space-y-1" aria-label="Primary navigation">
-          {visibleNav.map(({ label, icon: Icon, count }) => <button key={label} onClick={() => { setActiveNav(label); setMobileNav(false); }} className={`flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition ${activeNav === label ? "bg-blue-600 text-white shadow-lg shadow-blue-950/20" : "text-slate-300 hover:bg-slate-800/80 hover:text-white"}`}><Icon className="size-[18px]" /><span className="flex-1">{label}</span>{count ? <span className={`rounded-full px-2 py-0.5 text-xs ${activeNav === label ? "bg-white/15 text-white" : "bg-slate-800 text-slate-300"}`}>{count}</span> : null}</button>)}
+          {visibleNav.map(({ label, icon: Icon }) => {
+            const count = label === "Requests"
+              ? requests.length
+              : label === "Approvals"
+                ? pendingRequestCount
+                : 0;
+            return <button key={label} onClick={() => { setActiveNav(label); setMobileNav(false); }} className={`flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition ${activeNav === label ? "bg-blue-600 text-white shadow-lg shadow-blue-950/20" : "text-slate-300 hover:bg-slate-800/80 hover:text-white"}`}><Icon className="size-[18px]" /><span className="flex-1">{label}</span>{count > 0 ? <span className={`rounded-full px-2 py-0.5 text-xs ${activeNav === label ? "bg-white/15 text-white" : "bg-slate-800 text-slate-300"}`}>{count}</span> : null}</button>;
+          })}
         </nav>
         <div className="mt-auto rounded-2xl border border-slate-700/60 bg-slate-900/60 p-4"><div className="flex items-center gap-2 text-sm font-medium text-white"><ShieldCheck className="size-4 text-emerald-400" />Responsible AI</div><p className="mt-2 text-xs leading-5 text-slate-400">AI recommends routing and summaries. People own approval decisions.</p></div>
         {apiConfigured ? <button onClick={() => void handleLogout()} className="mt-3 flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-slate-300 hover:bg-slate-800"><LogOut className="size-[18px]" />Sign out</button> : <button className="mt-3 flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-slate-300 hover:bg-slate-800"><Settings className="size-[18px]" />Settings</button>}
@@ -448,17 +480,19 @@ export default function Workspace() {
         <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-slate-200/80 bg-white/90 px-4 backdrop-blur md:px-7">
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileNav(true)}><Menu /></Button>
           <div className="relative hidden max-w-md flex-1 md:block"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search requests, people, or IDs" className="h-10 border-slate-200 bg-slate-50 pl-9 shadow-none" /></div>
-          <div className="ml-auto flex items-center gap-2"><div className="hidden items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 sm:flex"><span className="size-1.5 rounded-full bg-emerald-500" />All systems operational</div><Button variant="ghost" size="icon" className="relative"><Bell /><span className="absolute right-2 top-2 size-1.5 rounded-full bg-blue-600" /><span className="sr-only">Notifications</span></Button><div className="ml-1 flex items-center gap-2 border-l border-slate-200 pl-3"><div className="grid size-9 place-items-center rounded-full bg-slate-900 text-sm font-semibold text-white">{currentUser?.full_name.split(/\s+/).map((part) => part[0]).slice(-2).join("").toUpperCase() ?? "CO"}</div><div className="hidden sm:block"><p className="text-sm font-semibold text-slate-800">{currentUser?.full_name ?? "CentralOps User"}</p><p className="text-xs text-slate-500">{currentUser?.roles.join(" Â· ") || currentUser?.role || "Demo workspace"}</p></div></div></div>
+          <div className="ml-auto flex items-center gap-2"><div className={`hidden items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium sm:flex ${connectionStatus.style}`}><span className={`size-1.5 rounded-full ${connectionStatus.dot}`} />{connectionStatus.label}</div><Button variant="ghost" size="icon" className="relative"><Bell /><span className="absolute right-2 top-2 size-1.5 rounded-full bg-blue-600" /><span className="sr-only">Notifications</span></Button><div className="ml-1 flex items-center gap-2 border-l border-slate-200 pl-3"><div className="grid size-9 place-items-center rounded-full bg-slate-900 text-sm font-semibold text-white">{currentUser?.full_name.split(/\s+/).map((part) => part[0]).slice(-2).join("").toUpperCase() ?? "CO"}</div><div className="hidden sm:block"><p className="text-sm font-semibold text-slate-800">{currentUser?.full_name ?? "CentralOps User"}</p><p className="text-xs text-slate-500">{currentUser?.roles.join(" · ") || currentUser?.role || "Demo workspace"}</p></div></div></div>
         </header>
 
         <main className="mx-auto max-w-[1500px] p-4 md:p-7">
           <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-sm font-medium text-blue-700">{today}</p><h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 md:text-[30px]">{pageCopy[activeNav].title}</h1><p className="mt-1 text-sm text-slate-500">{pageCopy[activeNav].description}</p></div>{["Overview", "Requests"].includes(activeNav) ? <NewRequestDialog onCreate={handleCreate} /> : null}</section>
 
+          {workspaceError ? <div role="alert" className="mt-5 flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold">Live data could not be loaded</p><p className="mt-1 text-rose-700">{workspaceError}. No demo records are shown while the API is configured.</p></div><Button type="button" variant="outline" className="border-rose-300 bg-white text-rose-800 hover:bg-rose-100" onClick={() => setReloadNonce((value) => value + 1)}>Try again</Button></div> : null}
+
           {["Overview", "Analytics", "Automation"].includes(activeNav) ? <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricCard label="Open requests" value={String(metrics.open)} note="3 require attention today" icon={Inbox} tone="bg-blue-50 text-blue-700" />
-            <MetricCard label="Pending approvals" value={String(metrics.pending)} note="Oldest waiting for 1h 42m" icon={Clock3} tone="bg-amber-50 text-amber-700" />
-            <MetricCard label="Within SLA" value={`${metrics.sla}%`} note="Measured against policy targets" icon={CircleGauge} tone="bg-emerald-50 text-emerald-700" />
-            <MetricCard label="AI triage coverage" value={`${metrics.triage}%`} note="Requests with AI recommendations" icon={Sparkles} tone="bg-violet-50 text-violet-700" />
+            <MetricCard label={canViewOperationalAnalytics ? "Open requests" : "My open requests"} value={workspaceLoading ? "—" : String(metrics.open)} note="Active request workload" icon={Inbox} tone="bg-blue-50 text-blue-700" />
+            <MetricCard label={canViewOperationalAnalytics ? "Pending approvals" : "My pending requests"} value={workspaceLoading ? "—" : String(metrics.pending)} note="Awaiting a human decision" icon={Clock3} tone="bg-amber-50 text-amber-700" />
+            {canViewOperationalAnalytics ? <MetricCard label="Within SLA" value={workspaceLoading ? "—" : `${metrics.sla}%`} note="Measured against policy targets" icon={CircleGauge} tone="bg-emerald-50 text-emerald-700" /> : null}
+            {canViewOperationalAnalytics ? <MetricCard label="AI triage coverage" value={workspaceLoading ? "—" : `${metrics.triage}%`} note="Requests with AI recommendations" icon={Sparkles} tone="bg-violet-50 text-violet-700" /> : null}
           </section> : null}
 
           {["Overview", "Requests", "Approvals", "AI assistant"].includes(activeNav) ? <section className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.8fr)]">
@@ -466,7 +500,7 @@ export default function Workspace() {
               <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4"><div><h2 className="font-semibold text-slate-900">{activeNav === "Approvals" ? "Pending approval" : "Recent requests"}</h2><p className="mt-0.5 text-sm text-slate-500">AI-classified and routed service work</p></div>{activeNav === "Overview" ? <Button variant="ghost" size="sm" className="text-blue-700" onClick={() => setActiveNav("Requests")}>View all<ChevronRight /></Button> : null}</div>
               <Table><TableHeader><TableRow className="bg-slate-50/70 hover:bg-slate-50/70"><TableHead className="pl-5 text-xs uppercase tracking-wide text-slate-500">Request</TableHead><TableHead className="text-xs uppercase tracking-wide text-slate-500">Priority</TableHead><TableHead className="text-xs uppercase tracking-wide text-slate-500">Status</TableHead><TableHead className="pr-5 text-right text-xs uppercase tracking-wide text-slate-500">AI confidence</TableHead></TableRow></TableHeader><TableBody>
                 {visibleRequests.slice(0, activeNav === "Overview" ? 6 : 50).map((request) => <TableRow key={request.id} className="group cursor-pointer"><TableCell className="max-w-[420px] py-3.5 pl-5"><div className="flex items-start gap-3"><div className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-600"><FileText className="size-4" /></div><div className="min-w-0"><p className="truncate font-medium text-slate-900">{request.title}</p><p className="mt-0.5 text-xs text-slate-500">{request.id} · {request.department} · {request.submitted}</p></div></div></TableCell><TableCell><span className={`text-sm font-medium ${priorityStyles[request.priority]}`}>{request.priority}</span></TableCell><TableCell><Badge variant="outline" className={statusStyles[request.status]}>{request.status}</Badge></TableCell><TableCell className="pr-5 text-right"><span className="font-mono text-xs font-semibold text-slate-600">{request.aiConfidence}%</span></TableCell></TableRow>)}
-              </TableBody></Table>{visibleRequests.length === 0 && <div className="px-5 py-14 text-center text-sm text-slate-500">No requests match this view.</div>}
+              </TableBody></Table>{visibleRequests.length === 0 && <div className="px-5 py-14 text-center text-sm text-slate-500">{workspaceLoading ? "Loading live requests..." : workspaceError ? "Live requests are unavailable." : "No requests match this view."}</div>}
             </article> : null}
 
             {["Overview", "AI assistant"].includes(activeNav) ? <article className={`enter enter-delay-2 flex min-h-[430px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)] ${activeNav === "AI assistant" ? "xl:col-span-2" : ""}`}>
@@ -476,7 +510,7 @@ export default function Workspace() {
             </article> : null}
           </section> : null}
 
-          {["Overview", "Analytics", "Automation"].includes(activeNav) ? <section className="mt-5 grid gap-5 lg:grid-cols-3">
+          {canViewOperationalAnalytics && ["Overview", "Analytics", "Automation"].includes(activeNav) ? <section className="mt-5 grid gap-5 lg:grid-cols-3">
             <article className="rounded-2xl border border-slate-200 bg-white p-5 lg:col-span-2"><div className="flex items-start justify-between"><div><h2 className="font-semibold text-slate-900">Request volume</h2><p className="mt-1 text-sm text-slate-500">Last seven days by incoming work</p></div><Badge variant="outline">7 days</Badge></div><div className="mt-6 flex h-36 items-end gap-3 sm:gap-5">{[52, 70, 48, 82, 64, 91, 58].map((height, index) => <div key={index} className="flex flex-1 flex-col items-center gap-2"><div className="relative flex h-28 w-full max-w-10 items-end rounded-md bg-slate-100"><div className="w-full rounded-md bg-blue-600 transition-all hover:bg-blue-700" style={{ height: `${height}%` }} /></div><span className="text-xs text-slate-500">{["Fri", "Sat", "Sun", "Mon", "Tue", "Wed", "Thu"][index]}</span></div>)}</div></article>
             <article className="rounded-2xl border border-slate-200 bg-[#0b1930] p-5 text-white"><div className="flex items-center justify-between"><div><h2 className="font-semibold">Automation health</h2><p className="mt-1 text-sm text-slate-400">Past 24 hours</p></div><Activity className="size-5 text-emerald-400" /></div><div className="mt-5 flex items-end gap-3"><span className="text-4xl font-semibold tracking-tight">{metrics.automation}%</span><span className="mb-1 text-sm text-emerald-400">successful</span></div><div className="mt-5 space-y-3 text-sm"><div className="flex justify-between text-slate-300"><span>Approval workflow</span><span className="font-medium text-white">128 runs</span></div><div className="flex justify-between text-slate-300"><span>AI triage</span><span className="font-medium text-white">92 runs</span></div><div className="flex justify-between text-slate-300"><span>Notifications</span><span className="font-medium text-white">214 sent</span></div></div></article>
           </section> : null}

@@ -28,5 +28,8 @@ test("workspace uses role-aware navigation and logout", async () => {
   assert.match(workspace, /currentUser/);
   assert.match(workspace, /handleLogout/);
   assert.match(workspace, /userHasAnyRole/);
+  assert.match(workspace, /No demo records are shown while the API is configured/);
+  assert.match(workspace, /canViewOperationalAnalytics/);
+  assert.doesNotMatch(workspace, /Â·/);
   assert.doesNotMatch(workspace, /Automation admin<\/p>/);
 });

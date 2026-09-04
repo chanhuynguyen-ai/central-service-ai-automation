@@ -28,12 +28,13 @@ async function readCssTree(directory) {
   return values.join("\n");
 }
 
-test("renders the secure CentralOps session bootstrap", async () => {
+test("renders the interactive reviewer demo without an API build variable", async () => {
   const { response, html } = await renderHome();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
   assert.match(html, /<title>CentralOps AI \| Service Automation<\/title>/);
-  assert.match(html, /Restoring secure session/);
+  assert.match(html, /Service operations overview/);
+  assert.match(html, /Interactive demo/);
   assert.doesNotMatch(html, /Starter Project/);
 });
 
