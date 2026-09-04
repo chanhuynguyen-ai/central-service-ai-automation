@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   Activity, BarChart3, Bell, Bot, CheckCircle2, ChevronRight, CircleGauge,
-  Clock3, FileText, Inbox, LayoutDashboard, Menu, Plus, Search, Send,
+  Clock3, FileText, Inbox, LayoutDashboard, LogOut, Menu, Plus, Search, Send,
   Settings, ShieldCheck, Sparkles, Workflow, X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -21,14 +21,26 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  ApiError,
   ApiServiceRequest,
+  ApiUser,
+  TokenResponse,
   apiConfigured,
   askPolicyAssistant,
   createRequest as createApiRequest,
   getAnalytics,
+  getCurrentUser,
   listRequests,
   login,
+  logoutSession,
+  refreshSession,
 } from "@/lib/api";
+import {
+  clearSession,
+  getStoredSession,
+  saveSession,
+  userHasAnyRole,
+} from "@/lib/auth";
 
 type RequestStatus = "Pending approval" | "In progress" | "Completed" | "Rejected";
 type Priority = "Low" | "Medium" | "High" | "Urgent";
@@ -79,13 +91,18 @@ const initialRequests: ServiceRequest[] = [
   { id: "CSR-1044", title: "Purchase approval for team headsets", requester: "Quang Le", department: "Customer Service", category: "Procurement", priority: "Low", status: "Rejected", submitted: "Yesterday", aiConfidence: 93 },
 ];
 
-const nav = [
+const nav: Array<{
+  label: string;
+  icon: typeof Inbox;
+  count?: number;
+  roles?: string[];
+}> = [
   { label: "Overview", icon: LayoutDashboard },
   { label: "Requests", icon: Inbox, count: 12 },
-  { label: "Approvals", icon: CheckCircle2, count: 4 },
+  { label: "Approvals", icon: CheckCircle2, count: 4, roles: ["APPROVER", "ADMIN"] },
   { label: "AI assistant", icon: Bot },
-  { label: "Analytics", icon: BarChart3 },
-  { label: "Automation", icon: Workflow },
+  { label: "Analytics", icon: BarChart3, roles: ["APPROVER", "ADMIN"] },
+  { label: "Automation", icon: Workflow, roles: ["APPROVER", "ADMIN"] },
 ];
 
 const statusStyles: Record<RequestStatus, string> = {
@@ -164,7 +181,7 @@ function NewRequestDialog({ onCreate }: { onCreate: (request: RequestDraft) => P
   );
 }
 
-function LoginScreen({ onAuthenticated }: { onAuthenticated: (token: string) => void }) {
+function LoginScreen({ onAuthenticated }: { onAuthenticated: (result: TokenResponse) => void }) {
   const [email, setEmail] = useState("admin@centralops.demo");
   const [password, setPassword] = useState("Admin123!");
   const [error, setError] = useState("");
@@ -176,8 +193,7 @@ function LoginScreen({ onAuthenticated }: { onAuthenticated: (token: string) => 
     setError("");
     try {
       const result = await login(email, password);
-      sessionStorage.setItem("centralops_token", result.access_token);
-      onAuthenticated(result.access_token);
+      onAuthenticated(result);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Sign in failed");
     } finally {
@@ -214,34 +230,136 @@ export default function Workspace() {
   const [assistantInput, setAssistantInput] = useState("");
   const [assistantReply, setAssistantReply] = useState("I can explain policies, help classify a request, or show you where it is in the approval process.");
   const [token, setToken] = useState("");
+  const [refreshToken, setRefreshToken] = useState("");
+  const [currentUser, setCurrentUser] = useState<ApiUser | null>(null);
+  const [sessionReady, setSessionReady] = useState(!apiConfigured);
   const [metrics, setMetrics] = useState({ open: 12, pending: 4, sla: 94.2, automation: 99.7, triage: 92.8 });
+
+  function applySession(result: TokenResponse) {
+    saveSession({
+      accessToken: result.access_token,
+      refreshToken: result.refresh_token,
+      user: result.user,
+    });
+    setToken(result.access_token);
+    setRefreshToken(result.refresh_token);
+    setCurrentUser(result.user);
+  }
+
+  function resetSession() {
+    clearSession();
+    setToken("");
+    setRefreshToken("");
+    setCurrentUser(null);
+    setActiveNav("Overview");
+  }
 
   useEffect(() => {
     if (!apiConfigured) return;
-    const timer = window.setTimeout(() => {
-      setToken(sessionStorage.getItem("centralops_token") ?? "");
-    }, 0);
-    return () => window.clearTimeout(timer);
+
+    const stored = getStoredSession();
+    if (!stored) {
+      const timer = window.setTimeout(() => setSessionReady(true), 0);
+      return () => window.clearTimeout(timer);
+    }
+
+    const storedSession = stored;
+
+    async function restoreSession() {
+      try {
+        const user = await getCurrentUser(storedSession.accessToken);
+        setToken(storedSession.accessToken);
+        setRefreshToken(storedSession.refreshToken);
+        setCurrentUser(user);
+        saveSession({ ...storedSession, user });
+      } catch {
+        try {
+          const rotated = await refreshSession(storedSession.refreshToken);
+          applySession(rotated);
+        } catch {
+          resetSession();
+        }
+      } finally {
+        setSessionReady(true);
+      }
+    }
+
+    void restoreSession();
   }, []);
 
   useEffect(() => {
-    if (!apiConfigured || !token) return;
-    Promise.all([listRequests(token), getAnalytics(token)])
-      .then(([requestResult, analytics]) => {
-        setRequests(requestResult.items.map(mapApiRequest));
-        setMetrics({
-          open: analytics.open_requests,
-          pending: analytics.pending_approvals,
-          sla: analytics.sla_compliance_rate,
-          automation: analytics.automation_success_rate,
-          triage: analytics.ai_triage_coverage,
-        });
-      })
-      .catch(() => {
-        sessionStorage.removeItem("centralops_token");
-        setToken("");
-      });
-  }, [token]);
+    if (!apiConfigured || !token || !currentUser) return;
+
+    async function loadWorkspace() {
+      try {
+        const requestResult = await listRequests(token);
+        const mappedRequests = requestResult.items.map(mapApiRequest);
+        setRequests(mappedRequests);
+
+        if (userHasAnyRole(currentUser, "APPROVER", "ADMIN")) {
+          const analytics = await getAnalytics(token);
+          setMetrics({
+            open: analytics.open_requests,
+            pending: analytics.pending_approvals,
+            sla: analytics.sla_compliance_rate,
+            automation: analytics.automation_success_rate,
+            triage: analytics.ai_triage_coverage,
+          });
+        } else {
+          setMetrics((current) => ({
+            ...current,
+            open: mappedRequests.filter((request) => request.status !== "Completed" && request.status !== "Rejected").length,
+            pending: mappedRequests.filter((request) => request.status === "Pending approval").length,
+          }));
+        }
+      } catch (cause) {
+        if (cause instanceof ApiError && cause.status === 401 && refreshToken) {
+          try {
+            const rotated = await refreshSession(refreshToken);
+            applySession(rotated);
+            return;
+          } catch {
+            resetSession();
+          }
+        }
+      }
+    }
+
+    void loadWorkspace();
+  }, [token, refreshToken, currentUser]);
+
+  const visibleNav = useMemo(
+    () => nav.filter((item) => !item.roles || userHasAnyRole(currentUser, ...item.roles)),
+    [currentUser],
+  );
+
+  useEffect(() => {
+    if (visibleNav.some((item) => item.label === activeNav)) return;
+    const timer = window.setTimeout(() => setActiveNav("Overview"), 0);
+    return () => window.clearTimeout(timer);
+  }, [activeNav, visibleNav]);
+
+  async function withSessionRefresh<T>(operation: (accessToken: string) => Promise<T>): Promise<T> {
+    try {
+      return await operation(token);
+    } catch (cause) {
+      if (!(cause instanceof ApiError) || cause.status !== 401 || !refreshToken) throw cause;
+      const rotated = await refreshSession(refreshToken);
+      applySession(rotated);
+      return operation(rotated.access_token);
+    }
+  }
+
+  async function handleLogout() {
+    if (refreshToken) {
+      try {
+        await logoutSession(refreshToken);
+      } catch {
+        // Local logout must still succeed if the server session is already expired/revoked.
+      }
+    }
+    resetSession();
+  }
 
   const filteredRequests = useMemo(() => requests.filter((request) =>
     `${request.id} ${request.title} ${request.requester} ${request.department}`.toLowerCase().includes(query.toLowerCase())
@@ -264,11 +382,11 @@ export default function Workspace() {
 
   async function handleCreate(draft: RequestDraft) {
     if (apiConfigured && token) {
-      const created = await createApiRequest(token, {
+      const created = await withSessionRefresh((accessToken) => createApiRequest(accessToken, {
         ...draft,
         category: draft.category.toLowerCase().replaceAll(" ", "_"),
         priority: draft.priority.toLowerCase(),
-      });
+      }));
       setRequests((current) => [mapApiRequest(created), ...current]);
       setMetrics((current) => ({ ...current, open: current.open + 1, pending: current.pending + 1 }));
       return;
@@ -294,7 +412,9 @@ export default function Workspace() {
     if (apiConfigured && token) {
       try {
         const reference = text.match(/csr-\d+/i)?.[0].toUpperCase();
-        const result = await askPolicyAssistant(token, text, reference);
+        const result = await withSessionRefresh((accessToken) =>
+          askPolicyAssistant(accessToken, text, reference),
+        );
         setAssistantReply(result.answer);
         return;
       } catch (cause) {
@@ -307,7 +427,10 @@ export default function Workspace() {
     else setAssistantReply("Include the affected service, business impact, desired outcome, and deadline. I will use those details to recommend a category and approval route.");
   }
 
-  if (apiConfigured && !token) return <LoginScreen onAuthenticated={setToken} />;
+  if (apiConfigured && !sessionReady) {
+    return <main className="grid min-h-screen place-items-center bg-[#071426] text-sm font-medium text-slate-200">Restoring secure session...</main>;
+  }
+  if (apiConfigured && (!token || !currentUser)) return <LoginScreen onAuthenticated={applySession} />;
 
   return (
     <div className="min-h-screen bg-transparent lg:grid lg:grid-cols-[252px_minmax(0,1fr)]">
@@ -315,17 +438,17 @@ export default function Workspace() {
       <aside className={`fixed inset-y-0 left-0 z-40 flex w-[252px] flex-col bg-[#071426] px-4 py-5 transition-transform lg:sticky lg:top-0 lg:h-screen ${mobileNav ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
         <div className="flex items-center justify-between px-2"><Logo /><Button variant="ghost" size="icon-sm" className="text-slate-300 lg:hidden" onClick={() => setMobileNav(false)}><X /></Button></div>
         <nav className="mt-9 space-y-1" aria-label="Primary navigation">
-          {nav.map(({ label, icon: Icon, count }) => <button key={label} onClick={() => { setActiveNav(label); setMobileNav(false); }} className={`flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition ${activeNav === label ? "bg-blue-600 text-white shadow-lg shadow-blue-950/20" : "text-slate-300 hover:bg-slate-800/80 hover:text-white"}`}><Icon className="size-[18px]" /><span className="flex-1">{label}</span>{count ? <span className={`rounded-full px-2 py-0.5 text-xs ${activeNav === label ? "bg-white/15 text-white" : "bg-slate-800 text-slate-300"}`}>{count}</span> : null}</button>)}
+          {visibleNav.map(({ label, icon: Icon, count }) => <button key={label} onClick={() => { setActiveNav(label); setMobileNav(false); }} className={`flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition ${activeNav === label ? "bg-blue-600 text-white shadow-lg shadow-blue-950/20" : "text-slate-300 hover:bg-slate-800/80 hover:text-white"}`}><Icon className="size-[18px]" /><span className="flex-1">{label}</span>{count ? <span className={`rounded-full px-2 py-0.5 text-xs ${activeNav === label ? "bg-white/15 text-white" : "bg-slate-800 text-slate-300"}`}>{count}</span> : null}</button>)}
         </nav>
         <div className="mt-auto rounded-2xl border border-slate-700/60 bg-slate-900/60 p-4"><div className="flex items-center gap-2 text-sm font-medium text-white"><ShieldCheck className="size-4 text-emerald-400" />Responsible AI</div><p className="mt-2 text-xs leading-5 text-slate-400">AI recommends routing and summaries. People own approval decisions.</p></div>
-        <button className="mt-3 flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-slate-300 hover:bg-slate-800"><Settings className="size-[18px]" />Settings</button>
+        {apiConfigured ? <button onClick={() => void handleLogout()} className="mt-3 flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-slate-300 hover:bg-slate-800"><LogOut className="size-[18px]" />Sign out</button> : <button className="mt-3 flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-slate-300 hover:bg-slate-800"><Settings className="size-[18px]" />Settings</button>}
       </aside>
 
       <div className="min-w-0">
         <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-slate-200/80 bg-white/90 px-4 backdrop-blur md:px-7">
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileNav(true)}><Menu /></Button>
           <div className="relative hidden max-w-md flex-1 md:block"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search requests, people, or IDs" className="h-10 border-slate-200 bg-slate-50 pl-9 shadow-none" /></div>
-          <div className="ml-auto flex items-center gap-2"><div className="hidden items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 sm:flex"><span className="size-1.5 rounded-full bg-emerald-500" />All systems operational</div><Button variant="ghost" size="icon" className="relative"><Bell /><span className="absolute right-2 top-2 size-1.5 rounded-full bg-blue-600" /><span className="sr-only">Notifications</span></Button><div className="ml-1 flex items-center gap-2 border-l border-slate-200 pl-3"><div className="grid size-9 place-items-center rounded-full bg-slate-900 text-sm font-semibold text-white">NH</div><div className="hidden sm:block"><p className="text-sm font-semibold text-slate-800">Nguyen Huy</p><p className="text-xs text-slate-500">Automation admin</p></div></div></div>
+          <div className="ml-auto flex items-center gap-2"><div className="hidden items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 sm:flex"><span className="size-1.5 rounded-full bg-emerald-500" />All systems operational</div><Button variant="ghost" size="icon" className="relative"><Bell /><span className="absolute right-2 top-2 size-1.5 rounded-full bg-blue-600" /><span className="sr-only">Notifications</span></Button><div className="ml-1 flex items-center gap-2 border-l border-slate-200 pl-3"><div className="grid size-9 place-items-center rounded-full bg-slate-900 text-sm font-semibold text-white">{currentUser?.full_name.split(/\s+/).map((part) => part[0]).slice(-2).join("").toUpperCase() ?? "CO"}</div><div className="hidden sm:block"><p className="text-sm font-semibold text-slate-800">{currentUser?.full_name ?? "CentralOps User"}</p><p className="text-xs text-slate-500">{currentUser?.roles.join(" Â· ") || currentUser?.role || "Demo workspace"}</p></div></div></div>
         </header>
 
         <main className="mx-auto max-w-[1500px] p-4 md:p-7">

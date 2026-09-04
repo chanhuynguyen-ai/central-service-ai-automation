@@ -4,13 +4,10 @@ from app.db.session import get_db
 from app.models.models import AuthSession, User
 
 
-def _login(client: TestClient) -> dict:
+def _login(client: TestClient, email: str = "employee@centralops.demo", password: str = "Employee123!") -> dict:
     response = client.post(
         "/api/v1/auth/login",
-        json={
-            "email": "employee@centralops.demo",
-            "password": "Employee123!",
-        },
+        json={"email": email, "password": password},
     )
     assert response.status_code == 200
     return response.json()
@@ -23,6 +20,13 @@ def test_login_returns_access_and_refresh_tokens(client: TestClient) -> None:
     assert body["refresh_token"]
     assert body["token_type"] == "bearer"
     assert body["user"]["email"] == "employee@centralops.demo"
+    assert "EMPLOYEE" in body["user"]["roles"]
+
+
+def test_manager_login_exposes_normalized_role_assignments(client: TestClient) -> None:
+    body = _login(client, "manager.finance@centralops.demo", "Manager123!")
+
+    assert {"EMPLOYEE", "MANAGER", "APPROVER"}.issubset(set(body["user"]["roles"]))
 
 
 def test_refresh_token_is_stored_only_as_hash(client: TestClient) -> None:
@@ -52,6 +56,7 @@ def test_refresh_rotates_token_and_rejects_reuse(client: TestClient) -> None:
     second_refresh = rotated.json()["refresh_token"]
     assert second_refresh != first_refresh
     assert rotated.json()["access_token"]
+    assert "EMPLOYEE" in rotated.json()["user"]["roles"]
 
     reused = client.post(
         "/api/v1/auth/refresh",
@@ -114,3 +119,4 @@ def test_auth_me_returns_current_user(client: TestClient) -> None:
 
     assert response.status_code == 200
     assert response.json()["email"] == "employee@centralops.demo"
+    assert "EMPLOYEE" in response.json()["roles"]
