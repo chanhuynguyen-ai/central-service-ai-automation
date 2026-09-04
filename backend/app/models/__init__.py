@@ -1,3 +1,4 @@
+from app.models.catalog import RequestType, RequestTypeVersion
 from app.models.models import (
     Approval,
     AuditEvent,
@@ -20,6 +21,8 @@ __all__ = [
     "AutomationRun",
     "Department",
     "KnowledgeArticle",
+    "RequestType",
+    "RequestTypeVersion",
     "Role",
     "ServiceRequest",
     "ServiceTeam",
