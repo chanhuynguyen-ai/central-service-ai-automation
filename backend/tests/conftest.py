@@ -34,6 +34,7 @@ def client(tmp_path) -> Generator[TestClient, None, None]:
         yield test_client
     app.dependency_overrides.clear()
     Base.metadata.drop_all(bind=engine)
+    engine.dispose()
 
 
 def login(client: TestClient, role: str = "employee") -> dict[str, str]:

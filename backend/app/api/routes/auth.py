@@ -12,7 +12,7 @@ router = APIRouter()
 @router.post("/login", response_model=TokenOut)
 def login(payload: LoginInput, db: Session = Depends(get_db)) -> TokenOut:
     user = db.query(User).filter(User.email == payload.email).first()
-    if not user or not verify_password(payload.password, user.hashed_password):
+    if not user or not user.is_active or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",

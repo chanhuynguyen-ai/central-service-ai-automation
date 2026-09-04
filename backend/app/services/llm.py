@@ -2,8 +2,10 @@ import json
 import re
 from dataclasses import dataclass
 from time import perf_counter
+from typing import Literal
 
 import httpx
+from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -108,6 +110,24 @@ def extract_json(text: str) -> dict:
     return json.loads(match.group(0))
 
 
+class TriagePayload(BaseModel):
+    category: Literal[
+        "access_request",
+        "it_support",
+        "hr_support",
+        "facility",
+        "procurement",
+        "general_service",
+    ]
+    priority: Literal["low", "medium", "high", "urgent"]
+    summary: str = Field(min_length=3, max_length=500)
+    confidence: float = Field(ge=0.0, le=1.0)
+
+
+def parse_triage_payload(text: str) -> TriagePayload:
+    return TriagePayload.model_validate(extract_json(text))
+
+
 class AIService:
     def __init__(self) -> None:
         self.client = LLMClient()
@@ -129,12 +149,19 @@ hr_support, facility, procurement, general_service. Choose priority from low, me
 high, urgent. Summarize in one sentence. Return keys category, priority, summary,
 confidence (0 to 1).\nTitle: {title}\nDescription: {description}""",
                 )
-                parsed = extract_json(raw)
-                category = str(parsed["category"])
-                priority = str(parsed["priority"])
-                summary = str(parsed["summary"])
-                confidence = float(parsed.get("confidence", 0.8))
-            except (httpx.HTTPError, KeyError, ValueError, TypeError, json.JSONDecodeError):
+                parsed = parse_triage_payload(raw)
+                category = parsed.category
+                priority = parsed.priority
+                summary = parsed.summary
+                confidence = parsed.confidence
+            except (
+                httpx.HTTPError,
+                KeyError,
+                ValueError,
+                TypeError,
+                json.JSONDecodeError,
+                ValidationError,
+            ):
                 category, priority, summary, confidence = fallback
                 provider = f"{provider}:fallback"
                 model = "deterministic-fallback-v1"
@@ -181,7 +208,16 @@ confidence (0 to 1).\nTitle: {title}\nDescription: {description}""",
             except httpx.HTTPError:
                 provider = f"{provider}:fallback"
                 model = "grounded-template-v1"
-                answer = f"The AI provider is unavailable. Relevant policy: {citations[0].article.content[:430]}"
+                if citations:
+                    answer = (
+                        "The AI provider is unavailable. Relevant policy: "
+                        f"{citations[0].article.content[:430]}"
+                    )
+                else:
+                    answer = (
+                        "The AI provider is unavailable and no supporting policy content was found. "
+                        "Please contact the service desk."
+                    )
 
         latency_ms = int((perf_counter() - start) * 1000)
         db.add(

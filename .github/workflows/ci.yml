@@ -19,6 +19,7 @@ jobs:
           enable-cache: true
       - run: uv sync --extra dev
       - run: uv run ruff check app tests
+      - run: DATABASE_URL=sqlite:///./ci-migration.db uv run alembic upgrade head
       - run: uv run pytest --cov=app --cov-report=term-missing
 
   frontend:
