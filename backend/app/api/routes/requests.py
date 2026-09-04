@@ -9,6 +9,13 @@ from app.db.session import get_db
 from app.models.models import Approval, ServiceRequest, User
 from app.schemas.schemas import DecisionInput, RequestCreate, RequestList, RequestOut, StatusUpdate
 from app.services.llm import ai_service
+from app.services.permissions import (
+    can_change_request_status,
+    can_decide_approval,
+    can_view_all_requests,
+    can_view_direct_reports,
+    can_view_request,
+)
 from app.services.workflow import add_audit_event, create_request
 
 router = APIRouter()
@@ -17,8 +24,10 @@ router = APIRouter()
 def get_visible_request(db: Session, request_id: int, user: User) -> ServiceRequest:
     query = db.query(ServiceRequest).options(joinedload(ServiceRequest.requester))
     request = query.filter(ServiceRequest.id == request_id).first()
-    if not request or (user.role == "employee" and request.requester_id != user.id):
+
+    if not request or not can_view_request(user, request):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found")
+
     return request
 
 
@@ -33,8 +42,18 @@ def list_requests(
     user: User = Depends(get_current_user),
 ) -> RequestList:
     query = db.query(ServiceRequest).options(joinedload(ServiceRequest.requester))
-    if user.role == "employee":
-        query = query.filter(ServiceRequest.requester_id == user.id)
+
+    if not can_view_all_requests(user):
+        if can_view_direct_reports(user):
+            query = query.join(User, ServiceRequest.requester_id == User.id).filter(
+                or_(
+                    ServiceRequest.requester_id == user.id,
+                    User.manager_id == user.id,
+                )
+            )
+        else:
+            query = query.filter(ServiceRequest.requester_id == user.id)
+
     if request_status:
         query = query.filter(ServiceRequest.status == request_status)
     if category:
@@ -77,17 +96,20 @@ def decide_request(
     request_id: int,
     payload: DecisionInput,
     db: Session = Depends(get_db),
-    approver: User = Depends(require_roles("approver", "admin")),
+    approver: User = Depends(require_roles("APPROVER", "ADMIN")),
 ) -> ServiceRequest:
     request = get_visible_request(db, request_id, approver)
-    if request.requester_id == approver.id:
+
+    if not can_decide_approval(approver, request):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users cannot approve their own request",
+            detail="Insufficient permissions to decide this request",
         )
+
     if request.status != "pending_approval":
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Request is not pending approval"
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Request is not pending approval",
         )
 
     request.status = "in_progress" if payload.decision == "approve" else "rejected"
@@ -115,13 +137,21 @@ def update_status(
     request_id: int,
     payload: StatusUpdate,
     db: Session = Depends(get_db),
-    operator: User = Depends(require_roles("approver", "admin")),
+    operator: User = Depends(require_roles("APPROVER", "SERVICE_LEAD", "ADMIN")),
 ) -> ServiceRequest:
     request = get_visible_request(db, request_id, operator)
+
+    if not can_change_request_status(operator, request):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions to change request status",
+        )
+
     previous = request.status
     request.status = payload.status
     if payload.status == "completed":
         request.completed_at = datetime.now(UTC)
+
     add_audit_event(
         db,
         "status_changed",
