@@ -24,6 +24,7 @@ class UserOut(BaseModel):
     full_name: str
     department: str
     role: str
+    roles: list[str] = Field(default_factory=list)
 
 
 class TokenOut(BaseModel):

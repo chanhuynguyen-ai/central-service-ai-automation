@@ -6,8 +6,8 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
-![Tests](https://img.shields.io/badge/backend_tests-11_passing-16A34A)
-![Coverage](https://img.shields.io/badge/backend_coverage-88%25-2563EB)
+![Tests](https://img.shields.io/badge/backend_tests-36_passing-16A34A)
+![Coverage](https://img.shields.io/badge/backend_coverage-90%25-2563EB)
 ![License](https://img.shields.io/badge/license-MIT-0F172A)
 
 CentralOps AI turns an employee request into a traceable service workflow: structured
@@ -44,7 +44,7 @@ The original project source-of-truth is preserved under [`docs/project/`](docs/p
 | Human approval | Approver/admin role checks, approve/reject decision, comment, timestamp, and audit event |
 | Operations | Request metrics, SLA compliance, AI coverage, automation success rate, and run history |
 | Power Platform | Custom connector for Power Apps/Power Automate plus a flattened Power BI analytics feed |
-| Quality | Eleven backend tests, frontend build/type checks, CI workflow, Docker health checks, UAT plan |
+| Quality | 36 backend tests, frontend contract tests, build/type/lint checks, CI workflow, Docker health checks, UAT plan |
 
 ## Architecture
 
@@ -199,7 +199,7 @@ npm run lint
 npm run build
 ```
 
-Automated tests cover authentication, request validation, employee isolation, AI triage,
+Automated tests cover authentication/session rotation, normalized RBAC, request validation, employee isolation, AI triage,
 human approval, grounded citations, management analytics, and Power Platform intake.
 
 ### Data quality exercise

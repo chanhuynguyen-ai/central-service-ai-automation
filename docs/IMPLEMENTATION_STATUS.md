@@ -19,9 +19,9 @@ placeholder exists.
 | Phase 0 - PostgreSQL/Redis/MinIO infrastructure | PARTIAL | PostgreSQL Docker service; Redis/MinIO added in project-start hardening | Redis/MinIO are not consumed by the application yet |
 | Phase 1 - FastAPI foundation | DONE | FastAPI app, health/readiness, config, request ID/logging | Expand operational metrics later |
 | Phase 1 - SQLAlchemy/Alembic | PARTIAL | SQLAlchemy models; Alembic baseline added in project-start hardening | Domain schema still reflects the simplified prototype |
-| Phase 2 - authentication | PARTIAL | Argon2 password hashing, expiring JWT, `/auth/me` | Refresh rotation, logout/revocation, SSO/OIDC adapter |
-| Phase 2 - RBAC | PARTIAL | employee/approver/admin server-side checks | Role table/scopes, manager relationship, service roles, centralized contextual policies |
-| Phase 3 - frontend shell | DONE | React/TypeScript workspace, login, navigation, API client | Split monolithic workspace into domain features as functionality grows |
+| Phase 2 - authentication | DONE (MVP) | Argon2, expiring access JWT, hashed rotating refresh sessions, logout/revocation, `/auth/me` | Move refresh transport to secure HttpOnly cookies and add an SSO/OIDC adapter before production |
+| Phase 2 - RBAC | PARTIAL | Normalized roles, manager hierarchy, service roles, and centralized contextual request policies | Add scoped role assignments and approval-task-based visibility in Phase 5 |
+| Phase 3 - frontend shell | DONE on feature branch | Real login/session restoration, refresh/logout, normalized role-aware navigation, live request loading, explicit API error state | Merge `feat/role-aware-frontend`; split the monolithic workspace as domain features grow |
 | Phase 4 - request catalog/versioning | MISSING | Fixed category choices only | `request_types`, versioned schemas, publish lifecycle |
 | Phase 4 - dynamic forms/drafts | MISSING | Single hard-coded request form | JSON form schema, draft API, renderer, server validation |
 | Phase 5 - deterministic workflow engine | MISSING | Single direct approve/reject transition | Workflow definitions/versions/instances/steps and approver resolvers |
@@ -40,7 +40,8 @@ placeholder exists.
 
 ## Current verified milestone
 
-The repository is a strong **prototype/POC**, but it has not yet reached project milestone M3
+The repository has reached **M1 — secure API foundation** and has a verified Phase 3 frontend
+implementation on its feature branch. It has not yet reached project milestone M3
 from the source-of-truth roadmap because the deterministic versioned workflow engine and
 real approval task model are not implemented.
 

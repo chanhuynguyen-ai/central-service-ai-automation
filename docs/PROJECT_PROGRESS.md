@@ -4,11 +4,15 @@
 >
 > Update rule: this file should be updated whenever a verified feature, fix, migration, test gate, PR merge, or architecture milestone is completed.
 
-**Last updated:** 2026-09-04 — Organization seed/resolver verification update  
-**Repository:** `chanhuynguyen-ai/central-service-ai-automation`  
-**Current development branch:** `feat/organization-rbac`  
-**Current verified remote branch HEAD:** `35fd0f7 feat(db): add organization and RBAC foundation`
-**Current verified local work after that commit:** organization seed + manager hierarchy + direct-manager resolver + organization tests (23 tests PASS locally; commit/push not yet confirmed)
+**Last updated:** 2026-09-04 — Role-aware frontend completion and verification
+
+**Repository:** `chanhuynguyen-ai/central-service-ai-automation`
+
+**Current development branch:** `feat/role-aware-frontend`
+
+**Current verified remote branch HEAD:** `cb2a208 feat(frontend): add role-aware authenticated workspace`
+
+**Current verified local work after that commit:** honest live-data loading/error states, dynamic navigation counts, role-scoped operational metrics, UTF-8 role display fix, CI test correction, and documentation refresh
 
 ---
 
@@ -16,9 +20,9 @@
 
 CentralOps AI has moved beyond the original prototype stage and now has a working local/containerized baseline with a FastAPI backend, PostgreSQL, Redis, MinIO, a frontend that builds and serves successfully, Alembic migrations, authentication hardening, basic request approval logic, AI triage validation, data-quality tooling, and automated backend tests.
 
-The project is currently in the **Organization + RBAC foundation** workstream. The normalized organization schema is committed on `feat/organization-rbac`; realistic organization seed data, manager hierarchy, and the direct-manager resolver are now implemented and locally verified, but their commit/push is not yet confirmed. Centralized permission policies, refresh/logout sessions, versioned request catalog, deterministic workflow runtime, fulfillment work items, notifications, attachments, and production-grade RAG are still incomplete.
+The project is currently completing **Phase 3 — authenticated, role-aware frontend shell**. Organization/RBAC, centralized request permissions, refresh-token rotation, logout/revocation, and normalized roles are merged into `main`. The current branch connects that identity contract to session restoration, automatic refresh, role-aware navigation, real request loading, and role-scoped metrics.
 
-A key Git status issue remains: feature/fix work exists on branches, while the remote `main` branch has not yet been updated with those branches. Merge the foundation and Docker build branches before treating `main` as the current baseline.
+The next product phase is **Phase 4 — versioned request catalog and draft requests**. Deterministic workflow runtime, fulfillment work items, notifications, attachments, and production-grade RAG remain incomplete and must follow the documented build order.
 
 ---
 
@@ -43,9 +47,8 @@ A key Git status issue remains: feature/fix work exists on branches, while the r
 - ✅ Conventional Commit naming is being used.
 - ✅ Project documentation set added under `docs/project/`.
 - ✅ DKSH alignment and implementation-status documentation added.
-- ⚠️ `chore/foundation-hardening` is still separate from remote `main`.
-- ⚠️ `fix/docker-web-build-alpine` is still separate from remote `main`.
-- 🔵 `feat/organization-rbac` is the active feature branch.
+- ✅ Foundation, Docker, Organization/RBAC, centralized permissions, and auth-session PRs are merged into `main`.
+- 🔵 `feat/role-aware-frontend` is the active feature branch and is based directly on current `main`.
 
 ### Runtime and infrastructure
 
@@ -56,7 +59,7 @@ A key Git status issue remains: feature/fix work exists on branches, while the r
 - ✅ FastAPI container starts successfully.
 - ✅ Frontend container starts successfully.
 - ✅ Frontend returns HTTP 200 on port 3000.
-- 🟡 API `/health` returned a transient connection-closed error immediately after API rebuild while the container still showed `health: starting`; rerun after startup before marking PASS.
+- ✅ API `/health` behavior is covered by the backend test suite.
 - ✅ API `/ready` returned `ready` with database connectivity after the rebuild.
 
 ### Backend foundation
@@ -79,19 +82,21 @@ A key Git status issue remains: feature/fix work exists on branches, while the r
 - ✅ Employee request visibility is scoped to owned requests in current API logic.
 - ✅ Self-approval is blocked.
 - ✅ Power Platform approval endpoint also blocks self-approval.
-- 🟡 Current authorization still partly depends on legacy single-string `user.role`.
-- ⬜ Refresh-token rotation/session table not implemented yet.
-- ⬜ Logout/revocation flow not implemented yet.
+- ✅ Centralized permission helpers read normalized role assignments with a documented legacy compatibility fallback.
+- ✅ Refresh-token rotation and hashed server-side session records are implemented.
+- ✅ Logout revokes the server-side refresh session.
+- 🟡 The browser currently receives refresh tokens in JSON and stores them in `sessionStorage`; production hardening should move them to HttpOnly/Secure/SameSite cookies.
 
 ### Testing and code quality
 
 - ✅ Backend test environment standardized with `uv` + Python 3.12.
-- ✅ Backend test suite now reaches **23 passing tests** after Organization seed/resolver work.
-- ✅ Backend coverage now reaches **89%**.
+- ✅ Backend test suite reaches **36 passing tests** on the current branch.
+- ✅ Backend coverage reaches **90%**.
 - ✅ `app/db/seed.py` reached **100%** coverage in the latest reported run.
 - ✅ `app/services/organization.py` is covered at **80%** in the latest reported run.
 - ✅ Ruff import/style violations were fixed and later reported as passing.
-- 🟡 No GitHub Actions PR run was found for the latest Organization/RBAC commit; current verification is primarily local/user-reported.
+- ✅ Frontend TypeScript, ESLint, production build, and **6 contract/product tests** pass locally.
+- 🟡 GitHub Actions verification is pending until the current branch is pushed and a PR is opened.
 
 ### Frontend and Docker build
 
@@ -99,6 +104,10 @@ A key Git status issue remains: feature/fix work exists on branches, while the r
 - ✅ Vite/Vinext production build succeeds locally.
 - ✅ Auth/login page is served by the production frontend container.
 - ✅ Authored Vite plugin moved outside ignored generated `build/` output.
+- ✅ Session restoration, refresh rotation, logout, and normalized user-role display are wired to the real API.
+- ✅ Navigation and operational analytics are role-aware; server authorization remains authoritative.
+- ✅ When an API-backed build cannot load live data, the UI shows an explicit retryable error instead of stale demo records.
+- ✅ Interactive demo mode remains available when `NEXT_PUBLIC_API_URL` is intentionally absent.
 - 🟡 Current frontend dependency audit still reports npm vulnerabilities and requires a dedicated dependency-audit branch.
 
 ### AI and data quality
@@ -124,8 +133,7 @@ A key Git status issue remains: feature/fix work exists on branches, while the r
 - ✅ Realistic organization seed data implemented locally and verified by tests.
 - ✅ Direct manager relationships implemented locally and verified by tests.
 - ✅ Direct manager resolver implemented locally and verified by tests.
-- 🟡 These Organization #07.2 changes are not yet confirmed committed/pushed to GitHub.
-- ⬜ Centralized domain permission helpers are not complete yet.
+- ✅ Organization and centralized permission work is committed and merged into `main`.
 
 ---
 
@@ -133,10 +141,10 @@ A key Git status issue remains: feature/fix work exists on branches, while the r
 
 | Phase | Scope | Status | Current assessment |
 |---|---|---:|---|
-| 0 | Repository + Docker infrastructure | 🟡 Partial / ⚠️ merge | Runtime works; branch integration into `main` still pending |
-| 1 | FastAPI + DB + Alembic + identity seed | 🟡 Partial | Core foundation works; normalized identity seed + organization hierarchy now verify locally; branch integration still pending |
-| 2 | Authentication + sessions + RBAC | 🔵 In progress | Login/security works; normalized RBAC schema + org hierarchy/resolver verify locally; centralized permissions and refresh/logout remain |
-| 3 | Frontend shell + real login + role-aware nav | 🟡 Partial | Frontend and login exist; complete role-aware UX not fully verified |
+| 0 | Repository + Docker infrastructure | ✅ Done | Repository, CI, Docker Compose, PostgreSQL, Redis, and MinIO baseline are integrated |
+| 1 | FastAPI + DB + Alembic + identity seed | ✅ Done | Health/readiness, SQLAlchemy/Alembic, organization seed, and PostgreSQL runtime path exist |
+| 2 | Authentication + sessions + RBAC | ✅ MVP done | Argon2, access tokens, hashed rotating refresh sessions, logout, normalized roles, manager scope, and centralized policies are implemented; production cookie transport remains hardening work |
+| 3 | Frontend shell + real login + role-aware nav | 🔵 In progress | Implementation and local quality gates pass on `feat/role-aware-frontend`; PR/CI integration remains |
 | 4 | Request catalog + versioned dynamic forms + drafts | ⬜ Missing | Next major product phase after RBAC/auth foundation |
 | 5 | Deterministic workflow + approval tasks | 🟡 Partial | Prototype approve/reject exists, but no true workflow definition/runtime/task model |
 | 6 | Timeline + comments + internal notes + audit | 🟡 Partial | Audit events exist; full timeline/comments/internal-note model missing |
@@ -162,79 +170,75 @@ A key Git status issue remains: feature/fix work exists on branches, while the r
 
 ---
 
-## 6. Active workstream — `feat/organization-rbac`
+## 6. Active workstream — `feat/role-aware-frontend`
 
 ### Completed in this branch
 
-- ✅ Added normalized organization/RBAC SQLAlchemy models.
-- ✅ Added Alembic migration for organization/RBAC tables.
-- ✅ Added legacy department and role backfill logic.
-- ✅ Kept legacy fields for API compatibility.
-- ✅ Current branch HEAD: `35fd0f7 feat(db): add organization and RBAC foundation`.
+- ✅ Added authenticated session restoration against `/auth/me`.
+- ✅ Added automatic refresh rotation and logout/revocation integration.
+- ✅ Exposed normalized roles in the frontend user contract.
+- ✅ Added role-aware navigation and role-scoped operational views.
+- ✅ Removed stale demo data from API-backed error states and added retry UX.
+- ✅ Added dynamic request/approval navigation counts and connection-state feedback.
+- ✅ Preserved the no-API interactive reviewer demo.
+- ✅ Current remote branch HEAD before the completion commit: `cb2a208 feat(frontend): add role-aware authenticated workspace`.
 
-### Organization seed + manager hierarchy + resolver — current state
+### Verification state
 
-Verified locally from user-provided output:
-
-- ✅ Organization-aware seed implementation is exercised by the test suite.
-- ✅ Direct-manager resolver is exercised by the test suite.
-- ✅ Backend tests: **23 passed**.
-- ✅ Coverage: **89%**.
-- ✅ Docker API image rebuilt successfully.
-- ✅ `/ready`: PASS with database `ok`.
-- 🟡 `/health`: rerun required because the first request landed while the API container still reported `health: starting`.
-- 🟡 Ruff for this exact final local state has not yet been re-reported in the latest output.
-- 🟡 PostgreSQL manual queries for manager/roles/service-team relationships have not yet been reported.
-- 🟡 Commit/push for seed/resolver/tests is not yet confirmed.
+- ✅ Backend Ruff: PASS.
+- ✅ Backend tests: **36 passed**.
+- ✅ Backend coverage: **90%**.
+- ✅ Frontend TypeScript: PASS.
+- ✅ Frontend ESLint: PASS.
+- ✅ Frontend production build: PASS.
+- ✅ Frontend contract/product tests: **6 passed**.
+- ✅ API-configured production build and local production smoke checks pass for `/health`, `/ready`, frontend bootstrap, manager roles, refresh rotation, logout, and revoked-token rejection.
+- 🟡 Docker smoke testing could not run in the current execution environment because the Docker CLI is unavailable; commit/push and GitHub Actions PR verification remain.
 
 ### Next vertical slice
 
-**Centralized RBAC permission policies**
+**Versioned request catalog foundation (`feat/request-catalog`)**
 
 Planned behavior:
 
-- Add normalized-role helpers that read `user_roles` rather than trusting only legacy `user.role`.
-- Add explicit request permission functions such as `can_view_request` and `can_decide_approval`.
-- Keep server-side authorization as the source of truth.
-- Preserve legacy API response compatibility while routing new authorization through centralized helpers.
-- Add role/permission tests, including Auditor read-only behavior and self-approval protection.
+- Add stable `request_types` identities and immutable `request_type_versions`.
+- Add an Alembic migration and demo catalog seed data.
+- Expose read APIs for active published request types.
+- Preserve submitted request history by referencing a specific request-type version.
+- Add publication/version-preservation tests before building the dynamic form renderer.
 
-### Acceptance checks before starting permission refactor
+### Acceptance checks before starting request catalog
 
-- [x] Backend tests pass — 23 passed.
-- [x] Coverage is at least baseline level — 89%.
-- [x] Docker API rebuild succeeds.
-- [x] `/ready` passes.
-- [ ] `/health` passes after container startup settles.
-- [ ] Ruff passes on final local state.
-- [ ] Manual PostgreSQL organization queries verify manager/role/team rows.
-- [ ] Organization #07.2 changes are committed and pushed.
+- [x] Backend Ruff passes.
+- [x] Backend tests pass — 36 passed, 90% coverage.
+- [x] Frontend typecheck, lint, build, and tests pass — 6 passed.
+- [x] API-configured production build passes.
+- [x] Local production `/health`, `/ready`, frontend bootstrap, login/roles, refresh rotation, logout, and revocation smoke checks pass.
+- [ ] Docker Compose smoke test passes in a Docker-enabled environment.
+- [ ] Completion commit is pushed and GitHub Actions passes in the PR.
 
 ---
 
-## 7. Next branches after Organization/RBAC
+## 7. Next branches after Phase 3
 
-1. `feat/auth-refresh-sessions` — refresh rotation, logout, session revocation.
-2. `feat/request-catalog` — stable request-type identity + versioning.
-3. `feat/dynamic-request-forms` — form schema renderer + drafts.
-4. `feat/workflow-engine` — deterministic workflow definitions/instances/resolvers/tasks.
-5. `feat/approval-inbox` — true assigned approval tasks and actions.
-6. `feat/audit-timeline` — user-facing request events + privileged audit log.
-7. `feat/service-fulfillment` — queue, assignment, work-item lifecycle.
-8. `feat/attachments-minio` — authorized upload/download flow.
-9. `feat/notifications-worker` — Redis-backed worker, retry, notifications.
-10. `feat/ai-intake-evaluation` — extraction, clarification, missing-field logic, eval set.
-11. `feat/policy-rag` — pgvector, permission-aware retrieval, citations.
+1. `feat/request-catalog` — stable request-type identity + immutable versioning.
+2. `feat/dynamic-request-forms` — form schema renderer + owned drafts.
+3. `feat/workflow-engine` — deterministic workflow definitions/instances/resolvers/tasks.
+4. `feat/approval-inbox` — true assigned approval tasks and actions.
+5. `feat/audit-timeline` — user-facing request events + privileged audit log.
+6. `feat/service-fulfillment` — queue, assignment, work-item lifecycle.
+7. `feat/attachments-minio` — authorized upload/download flow.
+8. `feat/notifications-worker` — Redis-backed worker, retry, notifications.
+9. `feat/ai-intake-evaluation` — extraction, clarification, missing-field logic, eval set.
+10. `feat/policy-rag` — pgvector, permission-aware retrieval, citations.
 
 ---
 
 ## 8. Known technical debt / follow-up work
 
-- Merge the completed foundation and Docker build branches into `main` before calling the repository baseline current.
 - Add branch protection / required CI checks to `main` later.
 - Run frontend dependency audit on a dedicated branch; do not use `npm audit fix --force` without review.
-- Add `.gitattributes`/line-ending policy in a dedicated repository hygiene branch if needed.
-- Add refresh-token sessions and logout before declaring M1 fully complete.
+- Move refresh-token transport from JSON/`sessionStorage` to HttpOnly/Secure/SameSite cookies before production deployment.
 - Replace prototype single `status` request lifecycle with separate approval and fulfillment state when implementing the proper request/workflow model.
 - Move from lexical/prototype retrieval to pgvector/hybrid permission-aware RAG only after core workflow is stable.
 
@@ -248,6 +252,8 @@ Planned behavior:
 | 2026-09-04 | `fix/docker-web-build-alpine` | Added Bash/Coreutils and moved Vite plugin source outside ignored generated build directory | Frontend production Docker build + HTTP 200 reported | ✅ |
 | 2026-09-04 | `feat/organization-rbac` | Added organization/RBAC models and migration with legacy backfill | Commit `35fd0f7` verified on GitHub | ✅ |
 | 2026-09-04 | `feat/organization-rbac` | Added realistic organization seed, manager hierarchy, direct-manager resolver, and organization tests | 23 tests PASS, 89% coverage, Docker API rebuild PASS, `/ready` PASS; `/health` rerun + Ruff + commit/push still pending | 🔵 |
+| 2026-09-04 | `main` | Merged centralized permissions (PR #6) and rotating auth sessions/logout (PR #7) | Main HEAD `03dbcbe`; backend regression suite passes | ✅ |
+| 2026-09-04 | `feat/role-aware-frontend` | Added real session lifecycle, normalized role-aware navigation/metrics, live-data error handling, and corrected frontend CI contract | Ruff PASS; 36 backend tests at 90%; typecheck/lint/build PASS; 6 frontend tests PASS; API-configured build and local production smoke PASS | 🔵 |
 
 ---
 

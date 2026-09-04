@@ -17,15 +17,27 @@ from app.services.auth_sessions import (
     revoke_refresh_session,
     rotate_refresh_session,
 )
+from app.services.permissions import user_role_codes
 
 router = APIRouter()
+
+
+def _user_out(user: User) -> UserOut:
+    return UserOut(
+        id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        department=user.department,
+        role=user.role,
+        roles=sorted(user_role_codes(user)),
+    )
 
 
 def _token_response(user: User, refresh_token: str) -> TokenOut:
     return TokenOut(
         access_token=create_access_token(user.email),
         refresh_token=refresh_token,
-        user=UserOut.model_validate(user),
+        user=_user_out(user),
     )
 
 
@@ -66,5 +78,5 @@ def logout(payload: LogoutInput, db: Session = Depends(get_db)) -> Response:
 
 
 @router.get("/me", response_model=UserOut)
-def me(user: User = Depends(get_current_user)) -> User:
-    return user
+def me(user: User = Depends(get_current_user)) -> UserOut:
+    return _user_out(user)

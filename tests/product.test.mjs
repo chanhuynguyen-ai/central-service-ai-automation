@@ -28,15 +28,21 @@ async function readCssTree(directory) {
   return values.join("\n");
 }
 
-test("renders the CentralOps product workspace", async () => {
+test("renders the interactive reviewer demo without an API build variable", async () => {
   const { response, html } = await renderHome();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
   assert.match(html, /<title>CentralOps AI \| Service Automation<\/title>/);
   assert.match(html, /Service operations overview/);
-  assert.match(html, /Responsible AI/);
-  assert.match(html, /New request/);
+  assert.match(html, /Interactive demo/);
   assert.doesNotMatch(html, /Starter Project/);
+});
+
+test("keeps the core CentralOps workspace content", async () => {
+  const workspace = await readFile(path.join(root, "app", "workspace.tsx"), "utf8");
+  assert.match(workspace, /Service operations overview/);
+  assert.match(workspace, /Responsible AI/);
+  assert.match(workspace, /New request/);
 });
 
 test("emits the product theme and reduced-motion support", async () => {

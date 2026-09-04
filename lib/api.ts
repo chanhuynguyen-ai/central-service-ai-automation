@@ -7,6 +7,14 @@ export type ApiUser = {
   full_name: string;
   department: string;
   role: string;
+  roles: string[];
+};
+
+export type TokenResponse = {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  user: ApiUser;
 };
 
 export type ApiServiceRequest = {
@@ -23,6 +31,16 @@ export type ApiServiceRequest = {
   requester: ApiUser;
 };
 
+export class ApiError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 async function apiRequest<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
@@ -32,20 +50,41 @@ async function apiRequest<T>(path: string, init: RequestInit = {}, token?: strin
       ...init.headers,
     },
   });
+
   if (!response.ok) {
     const detail = await response.json().catch(() => ({ detail: "Request failed" })) as {
       detail?: string;
     };
-    throw new Error(detail.detail ?? `Request failed with status ${response.status}`);
+    throw new ApiError(response.status, detail.detail ?? `Request failed with status ${response.status}`);
   }
+
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
 
 export async function login(email: string, password: string) {
-  return apiRequest<{ access_token: string; user: ApiUser }>("/auth/login", {
+  return apiRequest<TokenResponse>("/auth/login", {
     method: "POST",
     body: JSON.stringify({ email, password }),
   });
+}
+
+export async function refreshSession(refreshToken: string) {
+  return apiRequest<TokenResponse>("/auth/refresh", {
+    method: "POST",
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+}
+
+export async function logoutSession(refreshToken: string) {
+  return apiRequest<void>("/auth/logout", {
+    method: "POST",
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+}
+
+export async function getCurrentUser(token: string) {
+  return apiRequest<ApiUser>("/auth/me", {}, token);
 }
 
 export async function listRequests(token: string) {
