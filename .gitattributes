@@ -1,0 +1,25 @@
+* text=auto
+
+# Unix/Linux executable and infrastructure files must always use LF.
+.gitattributes text eol=lf
+*.sh text eol=lf
+Dockerfile* text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+* text=auto
+
+# Unix/Linux executable and infrastructure files must always use LF.
+.gitattributes text eol=lf
+*.sh text eol=lf
+Dockerfile* text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Windows-specific scripts keep CRLF.
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+# Windows-specific scripts keep CRLF.
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
