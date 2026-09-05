@@ -17,7 +17,7 @@ is not a production-security or regulatory-compliance certification.
 | Phase 3 role-aware frontend | Merged in PR #8 |
 | M2 private structured drafts | PR #9/#10 merged; browser/PostgreSQL regression gates retained |
 | M3 sequential assigned approvals | PR #11 merged at f9ef76f; user reports local stack checks passed |
-| M4 activity/comments/audit | Implemented in PR #12; verified gates below, final merge state in PR |
+| M4 activity/comments/audit | Implemented and verified; PR #12 records integration into main |
 | M5 fulfillment | Next; Approved still records fulfillment as not_queued |
 | M6 async communication | Worker/notification delivery not implemented |
 | M7/M8 AI intake and RAG | Later phases; legacy triage/lexical retrieval are not these milestones |
@@ -47,18 +47,21 @@ is not a production-security or regulatory-compliance certification.
 
 ## Verification checkpoints
 
-On `7fb78671d1f5074867f183d59f8178d94b49c5cf`:
+Verified code HEAD: `d0082869720b34d81c344251d7a129bff73fec07`.
+The following documentation checkpoint does not change that tested application code.
 
 | Gate | Recorded evidence |
 |---|---|
-| CI backend + frontend | #36 / 33967447121 SUCCESS: 123 backend tests, 85% total coverage; TypeScript, ESLint, build and executable frontend tests |
-| Chromium/Docker M2-M4 | #12 / 33967447127 SUCCESS: public persistence, escaped HTML, internal body/event isolation, account switch and auditor UI |
-| PostgreSQL M4 gate | #9 / 33967447118 SUCCESS: clean migration, M3 races, idempotent comment and DB append-only probes |
+| CI backend + frontend | #37 / 33967955414 SUCCESS: 125 backend tests, 85% total coverage; TypeScript, ESLint, build and executable frontend tests |
+| Chromium/Docker M2-M4 | #13 / 33967955406 SUCCESS: public persistence, escaped HTML, internal body/event isolation, account switch and auditor UI |
+| PostgreSQL M4 gate | #10 / 33967955409 SUCCESS: clean migration, M3 races, idempotent comment and DB append-only probes |
 
 Screenshots from the full M4 browser run were downloaded and visually inspected.
-The final hardening adds two focused tests for mixed-role writing scope and
-catalog/workflow configuration audit. These two tests passed locally. All gates
-must pass again on that final HEAD; PR #12 is authoritative for the final run IDs.
+Mixed-role writing scope and catalog/workflow configuration audit are included in
+the 125 passing tests. Focused tests also passed locally; a later full sandbox
+rerun hit the execution time limit and is not counted as a full local PASS. The
+complete-suite results above come from GitHub Actions. PR #12 records the final
+branch HEAD and gate/merge status, including this documentation checkpoint.
 
 Normal API fixtures use SQLite. Separate CI probes exercise real PostgreSQL row
 locks, concurrent writes and database triggers. CI uses mock AI, no production
