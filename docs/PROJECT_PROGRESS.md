@@ -47,19 +47,22 @@ is not a production-security or regulatory-compliance certification.
 
 ## Verification checkpoints
 
-Verified code HEAD: `d0082869720b34d81c344251d7a129bff73fec07`.
-The following documentation checkpoint does not change that tested application code.
+Verified checkpoint HEAD: `d2253f1e2798de449809fe3fb4bdbd4a1869c934`.
+The delivery cleanup updates this tracker and removes a temporary source-export
+step only; it does not change the tested application code. PR #12 records the
+final cleanup HEAD and its complete gate results before merge.
 
 | Gate | Recorded evidence |
 |---|---|
-| CI backend + frontend | #37 / 33967955414 SUCCESS: 125 backend tests, 85% total coverage; TypeScript, ESLint, build and executable frontend tests |
-| Chromium/Docker M2-M4 | #13 / 33967955406 SUCCESS: public persistence, escaped HTML, internal body/event isolation, account switch and auditor UI |
-| PostgreSQL M4 gate | #10 / 33967955409 SUCCESS: clean migration, M3 races, idempotent comment and DB append-only probes |
+| CI backend + frontend | #39 / 33968236734 SUCCESS: 125 backend tests, 85% total coverage; TypeScript, ESLint, build and executable frontend tests |
+| Chromium/Docker M2-M4 | #15 / 33968236746 SUCCESS: public persistence, escaped HTML, internal body/event isolation, account switch and auditor UI |
+| PostgreSQL M4 gate | #12 / 33968236748 SUCCESS: clean migration, M3 races, idempotent comment and DB append-only probes |
 
-Screenshots from the full M4 browser run were downloaded and visually inspected.
+Screenshots from that full M4 browser run were downloaded and visually inspected.
 Mixed-role writing scope and catalog/workflow configuration audit are included in
-the 125 passing tests. Focused tests also passed locally; a later full sandbox
-rerun hit the execution time limit and is not counted as a full local PASS. The
+the 125 passing tests. All 18 activity/role/migration-focused tests and Ruff also
+passed in the independent local sandbox. A full sandbox rerun hit the execution
+time limit and is not counted as a full local PASS. The
 complete-suite results above come from GitHub Actions. PR #12 records the final
 branch HEAD and gate/merge status, including this documentation checkpoint.
 
@@ -80,7 +83,7 @@ or an older application branch as a rollback plan after this migration.
 - Policy/transactions: `backend/app/services/activity.py`, `services/audit.py`, M3 workflow audit adapter.
 - API: `backend/app/api/routes/activity.py`, `audit.py`; auth/catalog hooks and actor context.
 - Migration: `backend/alembic/versions/f7b1d4a6c823_add_request_activity.py`.
-- Tests: `backend/tests/test_activity.py`, `test_activity_migration.py`, `tests/activity.test.mjs`.
+- Tests: `backend/tests/test_activity.py`, `test_activity_migration.py`, `test_activity_roles.py`, `tests/activity.test.mjs`.
 - PostgreSQL probe: `backend/app/db/verify_activity.py`.
 - UI/client: `components/activity/`, `lib/activity-api.ts`, workflow-detail and sidebar integration.
 - Browser gate: `scripts/m4_browser_smoke.py`; existing CI pipelines extended, not replaced.

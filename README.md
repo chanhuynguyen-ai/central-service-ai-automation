@@ -166,9 +166,9 @@ build/tests. A separate PostgreSQL job runs clean migrations and independent-
 connection races: repeated submission, repeated intermediate/final decisions and
 two different ALL reviewers. Browser smoke runs Chromium against production Docker
 images through private drafts, revision/resubmission and final human approval.
-M4 CI checkpoint: **123 backend tests, 85% total statement coverage**; later scoped
-hardening adds two focused tests. See the tracker and PR #12 for exact final tested
-counts, commits and workflow run IDs. M4 also tests raw SQL mutation guards, historic
+M4 CI checkpoint: **125 backend tests, 85% total statement coverage**, including
+mixed-role write-scope and configuration-audit checks. See the tracker and PR #12
+for exact final tested commits and workflow run IDs. M4 also tests raw SQL mutation guards, historic
 backfill, internal-note isolation, HTML escaping and idempotent comment retries.
 
 Browser/concurrency probes require `CENTRALOPS_E2E=1` and disposable data; they must
