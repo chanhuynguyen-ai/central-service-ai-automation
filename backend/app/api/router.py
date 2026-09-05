@@ -4,6 +4,7 @@ from app.api.routes import (
     activity,
     analytics,
     assistant,
+    attachments,
     audit,
     auth,
     automation,
@@ -20,6 +21,7 @@ api_router.include_router(activity.router, prefix="/activity", tags=["Request ac
 api_router.include_router(audit.router, prefix="/audit", tags=["Audit"])
 api_router.include_router(workflows.router, prefix="/workflows", tags=["Workflow and approvals"])
 api_router.include_router(fulfillment.router, prefix="/fulfillment", tags=["Service fulfillment"])
+api_router.include_router(attachments.router, prefix="/requests", tags=["Request attachments"])
 api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 # Static /requests/drafts routes must precede the legacy /requests/{request_id}.
 api_router.include_router(drafts.router, prefix="/requests/drafts", tags=["Request drafts"])
