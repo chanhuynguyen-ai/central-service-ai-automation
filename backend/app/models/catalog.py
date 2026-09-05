@@ -1,6 +1,17 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.session import Base
