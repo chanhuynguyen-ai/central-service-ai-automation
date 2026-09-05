@@ -5,7 +5,7 @@
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
-![Tests](https://img.shields.io/badge/backend_tests-107_passing-16A34A)
+![Tests](https://img.shields.io/badge/backend_tests-CI_verified-16A34A)
 ![Coverage](https://img.shields.io/badge/backend_coverage-85%25-2563EB)
 ![License](https://img.shields.io/badge/license-MIT-0F172A)
 
@@ -14,7 +14,7 @@ path is **catalog -> structured draft -> assigned sequential approvals**, with
 version snapshots, concurrency protection and preserved revision history. AI stays
 advisory; it does not grant authorization or make approval decisions.
 
-## Current capability: M2 and M3
+## Current capability: M2, M3 and M4
 
 An employee selects a published service, saves a typed form and explicitly submits.
 The workflow resolves the direct manager and service lead, gives each person an
@@ -22,11 +22,15 @@ assigned task in sequence, and records Approve, Reject or Request changes.
 Resubmission restarts the chain as a new attempt while retaining old submitted
 values and decisions. Unassigned administrators cannot approve someone else's task.
 
-**Approved is not Completed.** Service work-item creation, fulfillment, the full
-domain timeline/comments, attachments and asynchronous notifications are later
-roadmap slices. This repository is not a production-security certification.
+M4 adds a request activity timeline, public discussion, protected internal notes
+and a privileged audit log. Comments are plain text, append-only and idempotent;
+authorization is enforced before querying or paging internal content.
 
-Start with [M3 demo and API guide](docs/M3_WORKFLOW_APPROVALS.md),
+**Approved is not Completed.** Service work-item creation, fulfillment, attachments
+and asynchronous notifications remain later roadmap slices. This repository is not a production-security certification.
+
+Start with [M4 activity and audit](docs/M4_ACTIVITY_AUDIT.md),
+[M3 demo and API guide](docs/M3_WORKFLOW_APPROVALS.md),
 [M2 catalog/drafts](docs/M2_CATALOG_DRAFTS.md), the canonical
 [Project Progress](docs/PROJECT_PROGRESS.md) and [Implementation Status](docs/IMPLEMENTATION_STATUS.md).
 Original specifications remain in [`docs/project/`](docs/project/00_INDEX.md).
@@ -37,6 +41,7 @@ Original specifications remain in [`docs/project/`](docs/project/00_INDEX.md).
 | Catalog | Immutable published form versions, typed renderer, private drafts, required-field validation | Attachments and advanced conditional rules are explicit unsupported cases |
 | Workflow | Versioned sequential ALL steps; USER, MANAGER, ROLE and TEAM_LEAD resolvers | One default workflow per service; no conditional or ANY routing |
 | Decisions | Exact-assignee inbox, revision checks, atomic actions and attempt history | No unassigned admin override; unavailable reviewer fails safely |
+| Activity/audit | Timeline, scoped discussions, safe audit metadata, idempotent writes and append-only DB guards | Not WORM/tamper-proof against a DB owner; retention/redaction remains |
 | Data integrity | SQL transactions, request locks, compare-and-swap, unique constraints | CI race probes are not a load benchmark |
 | AI prototype | Mock/Ollama/OpenAI-compatible triage and lexical policy assistance | Evaluated schema-aware AI intake and pgvector RAG are still planned |
 | Power Platform assets | OpenAPI connector, app formulas, flow specification and legacy analytics feed | Real Microsoft tenant evidence is not yet verified |
@@ -56,7 +61,7 @@ docker compose exec api python -m app.db.seed_workflows
 Start-Process "http://localhost:3000"
 ```
 
-For the M3 release the migration head is `e6a0c3f5b712`. Existing data is preserved.
+For the M4 release the migration head is `f7b1d4a6c823`. Existing data is preserved.
 Catalog/workflow seed commands skip existing definitions; they do not overwrite
 custom routing. Seeded credentials and rules are synthetic local demo data, not
 DKSH policy. Never expose this default stack or its credentials publicly.
@@ -68,11 +73,13 @@ DKSH policy. Never expose this default stack or its credentials publicly.
 | Second reviewer | service.lead@centralops.demo | ServiceLead123! |
 | Unassigned prototype approver | approver@centralops.demo | Approver123! |
 | Administrator | admin@centralops.demo | Admin123! |
+| Read-only auditor | auditor@centralops.demo | Auditor123! |
 
 Use **Service catalog -> Save draft -> Submit for approval**, then switch to the
 manager and service-lead accounts under **Approvals**. The generic approver has no
 assigned task in this example. Try Request changes, edit under My drafts, resubmit
-and inspect the earlier attempt under Submitted requests.
+and inspect the earlier attempt under Submitted requests. M4 discussion and timeline
+appear below the attempts; ADMIN/AUDITOR accounts also have Audit log navigation.
 
 Web: `http://localhost:3000`. API docs: `http://localhost:8000/docs`.
 Health/readiness: `/health`, `/ready`. The mock AI provider needs no key or GPU.
@@ -120,6 +127,8 @@ All domain paths use `/api/v1` and authentication.
 | `/workflows/requests` | Authorized submitted requests and immutable attempt details |
 | `/workflows/approval-tasks` | Caller-specific pending/history inbox |
 | `/workflows/approval-tasks/{id}/decisions` | Assigned decision using task version |
+| `/activity/requests/{id}/timeline`, `/comments`, `/permissions` | Scoped discussion and append-only activity |
+| `/audit/events` | ADMIN/AUDITOR metadata-only audit view |
 
 Earlier `/requests`, simple decision/status, `/assistant/chat` request context and
 Power Platform paths are **legacy prototype** surfaces. They cannot mutate or
@@ -157,8 +166,10 @@ build/tests. A separate PostgreSQL job runs clean migrations and independent-
 connection races: repeated submission, repeated intermediate/final decisions and
 two different ALL reviewers. Browser smoke runs Chromium against production Docker
 images through private drafts, revision/resubmission and final human approval.
-Current recorded baseline: **107 backend tests, 85% total statement coverage**.
-See the tracker and PR #11 for exact tested commits and workflow run IDs.
+M4 CI checkpoint: **125 backend tests, 85% total statement coverage**, including
+mixed-role write-scope and configuration-audit checks. See the tracker and PR #12
+for exact final tested commits and workflow run IDs. M4 also tests raw SQL mutation guards, historic
+backfill, internal-note isolation, HTML escaping and idempotent comment retries.
 
 Browser/concurrency probes require `CENTRALOPS_E2E=1` and disposable data; they must
 not run on production. Artifacts are synthetic screenshots, not token-bearing traces.
@@ -184,8 +195,7 @@ be demonstrated separately before being claimed on a CV.
 
 ## Next milestones and known risks
 
-Next is Phase 6 / M4: full request timeline, comments and protected internal notes.
-Then Phase 7 / M5 fulfillment, Phase 8 attachments, Phase 9 notifications, followed
+Next is Phase 7 / M5 fulfillment, then Phase 8 attachments, Phase 9 notifications, followed
 by Phase 10 AI intake and Phase 11 evaluated policy RAG. Original ordered plan:
 [07_IMPLEMENTATION_PLAN.md](docs/project/07_IMPLEMENTATION_PLAN.md).
 
@@ -197,7 +207,8 @@ or enterprise-readiness claim is made.
 
 ## Reviewer resources
 
-- [Current M3 demo and API guide](docs/M3_WORKFLOW_APPROVALS.md)
+- [Current M4 activity and audit guide](docs/M4_ACTIVITY_AUDIT.md)
+- [M3 demo and API guide](docs/M3_WORKFLOW_APPROVALS.md)
 - [Canonical progress tracker](docs/PROJECT_PROGRESS.md)
 - [Security and responsible AI](docs/security-and-responsible-ai.md)
 - [Prepared UAT plan](docs/uat-test-plan.md)

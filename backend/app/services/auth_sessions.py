@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.models import AuthSession, User
+from app.services.audit import record_audit
 
 
 class RefreshSessionError(RuntimeError):
@@ -84,4 +85,5 @@ def revoke_refresh_session(db: Session, refresh_token: str) -> bool:
         return False
 
     session.revoked_at = datetime.now(UTC)
+    record_audit(db, "auth_logout", actor_id=session.user_id, resource_type="user", resource_id=session.user_id)
     return True
