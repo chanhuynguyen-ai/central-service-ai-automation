@@ -18,19 +18,29 @@ class AttachmentPresignInput(BaseModel):
             raise ValueError("A valid filename is required")
         if any(char in cleaned for char in ("/", "\\", "\x00")):
             raise ValueError("Filename must not contain path separators")
+        if any(ord(char) < 32 or ord(char) == 127 for char in cleaned):
+            raise ValueError("Filename must not contain control characters")
+        return cleaned
+
+    @field_validator("mime_type")
+    @classmethod
+    def normalize_mime_type(cls, value: str) -> str:
+        cleaned = value.split(";", 1)[0].strip().lower()
+        if not cleaned or "/" not in cleaned:
+            raise ValueError("A valid MIME type is required")
         return cleaned
 
 
 class AttachmentPresignOut(BaseModel):
     attachment_id: int
     upload_url: str
-    upload_method: Literal["PUT"] = "PUT"
-    required_headers: dict[str, str]
+    upload_method: Literal["POST"] = "POST"
+    form_fields: dict[str, str]
     expires_in_seconds: int
 
 
 class AttachmentCompleteInput(BaseModel):
-    sha256: str | None = Field(default=None, pattern=r"^[0-9a-fA-F]{64}$")
+    pass
 
 
 class AttachmentOut(BaseModel):
