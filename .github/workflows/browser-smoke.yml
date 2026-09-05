@@ -39,11 +39,13 @@ jobs:
           uv run --no-project --with playwright==1.61.0 python scripts/m3_browser_smoke.py
       - name: Exercise M4 discussion, internal-note privacy and audit UI
         run: uv run --no-project --with playwright==1.61.0 python scripts/m4_browser_smoke.py
+      - name: Exercise M5 service queue and fulfillment lifecycle
+        run: uv run --no-project --with playwright==1.61.0 python scripts/m5_browser_smoke.py
       - name: Save browser screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: m2-m3-browser-screenshots
+          name: governed-lifecycle-browser-screenshots
           path: artifacts/*.png
           if-no-files-found: ignore
           retention-days: 7
