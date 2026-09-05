@@ -33,14 +33,14 @@ function DecisionForm({ task, request, onDecided }: {
   }
   return <form onSubmit={act} className="mt-3 space-y-3 rounded-xl border border-blue-200 bg-blue-50 p-4" aria-label="Approval decision">
     <p className="text-sm font-semibold text-blue-900">Assigned to you</p>
-    <label className="grid gap-1 text-sm" htmlFor={`decision-${task.id}`}>Decision
+    <div className="grid gap-1 text-sm"><label htmlFor={`decision-${task.id}`}>Decision</label>
       <select id={`decision-${task.id}`} className={input} disabled={busy} value={decision} onChange={(event) => setDecision(event.target.value as Decision)}>
         <option value="approve">Approve</option><option value="reject">Reject</option><option value="request_changes">Request changes</option>
       </select>
-    </label>
-    <label className="grid gap-1 text-sm" htmlFor={`comment-${task.id}`}>Decision comment{decision !== "approve" ? " (required)" : " (optional)"}
+    </div>
+    <div className="grid gap-1 text-sm"><label htmlFor={`comment-${task.id}`}>Decision comment{decision !== "approve" ? " (required)" : " (optional)"}</label>
       <textarea id={`comment-${task.id}`} className={input} maxLength={2000} rows={3} disabled={busy} required={decision !== "approve"} value={comment} onChange={(event) => setComment(event.target.value)} />
-    </label>
+    </div>
     {error ? <p role="alert" className="text-sm text-rose-800">{error}</p> : null}
     <button type="submit" className={primary} disabled={busy || (decision !== "approve" && !comment.trim())}>{busy ? "Recording..." : "Record decision"}</button>
   </form>;
