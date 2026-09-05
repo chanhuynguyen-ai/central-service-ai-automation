@@ -100,8 +100,12 @@ export function ServiceQueue({ request }: { request: FulfillmentRequest }) {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError("");
+    const loadingTimer = window.setTimeout(() => {
+      if (!cancelled) {
+        setLoading(true);
+        setError("");
+      }
+    }, 0);
     requestRef.current((token) => listWorkItems(token, scope, status || undefined))
       .then((result) => {
         if (!cancelled) {
@@ -117,7 +121,10 @@ export function ServiceQueue({ request }: { request: FulfillmentRequest }) {
         }
       })
       .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      window.clearTimeout(loadingTimer);
+    };
   }, [scope, status, refresh]);
 
   function changed(updated: ServiceWorkItem) {
