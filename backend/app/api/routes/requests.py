@@ -22,7 +22,7 @@ router = APIRouter()
 
 
 def get_visible_request(db: Session, request_id: int, user: User) -> ServiceRequest:
-    query = db.query(ServiceRequest).filter(ServiceRequest.status != "draft").options(joinedload(ServiceRequest.requester))
+    query = db.query(ServiceRequest).filter(ServiceRequest.request_type_version_id.is_(None)).options(joinedload(ServiceRequest.requester))
     request = query.filter(ServiceRequest.id == request_id).first()
 
     if not request or not can_view_request(user, request):
@@ -41,7 +41,7 @@ def list_requests(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> RequestList:
-    query = db.query(ServiceRequest).filter(ServiceRequest.status != "draft").options(joinedload(ServiceRequest.requester))
+    query = db.query(ServiceRequest).filter(ServiceRequest.request_type_version_id.is_(None)).options(joinedload(ServiceRequest.requester))
 
     if not can_view_all_requests(user):
         if can_view_direct_reports(user):

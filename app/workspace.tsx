@@ -6,6 +6,7 @@ import {
   Clock3, FileText, Inbox, LayoutDashboard, LogOut, Menu, Plus, Search, Send,
   Settings, ShieldCheck, Sparkles, Workflow, X,
 } from "lucide-react";
+import { WorkflowWorkspace } from "@/components/workflows/workflow-workspace";
 import { CatalogWorkspace } from "@/components/catalog/catalog-workspace";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -99,6 +100,7 @@ const nav: Array<{
 }> = [
   { label: "Overview", icon: LayoutDashboard },
   { label: "Service catalog", icon: FileText },
+  { label: "Submitted requests", icon: FileText },
   { label: "My drafts", icon: FileText },
   { label: "Requests", icon: Inbox },
   { label: "Approvals", icon: CheckCircle2, roles: ["APPROVER", "ADMIN"] },
@@ -165,7 +167,7 @@ function NewRequestDialog({ onCreate }: { onCreate: (request: RequestDraft) => P
       <DialogTrigger asChild><Button className="h-10 rounded-lg bg-blue-600 px-4 hover:bg-blue-700"><Plus />New request</Button></DialogTrigger>
       <DialogContent className="sm:max-w-[580px]">
         <form onSubmit={submit}>
-          <DialogHeader><DialogTitle>Create a service request</DialogTitle><DialogDescription>AI triage will classify the request and prepare it for the correct approval flow.</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle>Legacy prototype request</DialogTitle><DialogDescription>This earlier intake path does not use versioned workflow tasks. Use Service catalog for governed approval.</DialogDescription></DialogHeader>
           <div className="grid gap-4 py-5">
             <label className="grid gap-2 text-sm font-medium text-slate-700">Request title<Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="What do you need help with?" required /></label>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -226,6 +228,7 @@ function LoginScreen({ onAuthenticated }: { onAuthenticated: (result: TokenRespo
 
 export default function Workspace() {
   const [activeNav, setActiveNav] = useState("Overview");
+  const [selectedSubmission, setSelectedSubmission] = useState<number | null>(null);
   const beforeLeaveCatalog = useRef<() => boolean>(() => true);
   const [mobileNav, setMobileNav] = useState(false);
   const [requests, setRequests] = useState<ServiceRequest[]>(apiConfigured ? [] : initialRequests);
@@ -259,6 +262,7 @@ export default function Workspace() {
     setToken("");
     setRefreshToken("");
     setCurrentUser(null);
+    setSelectedSubmission(null);
     setActiveNav("Overview");
   }
 
@@ -385,9 +389,6 @@ export default function Workspace() {
   const visibleRequests = activeNav === "Approvals"
     ? filteredRequests.filter((request) => request.status === "Pending approval")
     : filteredRequests;
-  const pendingRequestCount = requests.filter(
-    (request) => request.status === "Pending approval",
-  ).length;
   const canViewOperationalAnalytics = !apiConfigured
     || userHasAnyRole(currentUser, "APPROVER", "ADMIN");
   const connectionStatus = workspaceError
@@ -405,8 +406,9 @@ export default function Workspace() {
     Overview: { title: "Service operations overview", description: "Monitor requests, approvals, SLA performance, and AI automation." },
     "Service catalog": { title: "Service catalog", description: "Choose a service and create a private, structured draft." },
     "My drafts": { title: "My drafts", description: "Continue editing your saved requests. A draft is not yet submitted for approval." },
-    Requests: { title: "Service requests", description: "Search, submit, and follow AI-classified employee requests." },
-    Approvals: { title: "Approval queue", description: "Review pending work while keeping business decisions human-owned." },
+    Requests: { title: "Legacy service requests", description: "Earlier prototype requests. Use Service catalog and Submitted requests for versioned approval workflows." },
+    Approvals: { title: "Assigned approval tasks", description: "Review submitted information and record decisions on tasks assigned to you." },
+    "Submitted requests": { title: "Submitted requests", description: "Follow the recorded approval chain and review feedback on your submissions." },
     "AI assistant": { title: "Policy assistant", description: "Ask grounded questions about policies, routing, and request status." },
     Analytics: { title: "Service analytics", description: "Track demand, SLA compliance, and AI triage coverage." },
     Automation: { title: "Automation monitoring", description: "Review workflow health, run volume, and recoverable failures." },
@@ -473,9 +475,7 @@ export default function Workspace() {
           {visibleNav.map(({ label, icon: Icon }) => {
             const count = label === "Requests"
               ? requests.length
-              : label === "Approvals"
-                ? pendingRequestCount
-                : 0;
+              : 0;
             return <button key={label} onClick={() => { if (!beforeLeaveCatalog.current()) return; setActiveNav(label); setMobileNav(false); }} className={`flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition ${activeNav === label ? "bg-blue-600 text-white shadow-lg shadow-blue-950/20" : "text-slate-300 hover:bg-slate-800/80 hover:text-white"}`}><Icon className="size-[18px]" /><span className="flex-1">{label}</span>{count > 0 ? <span className={`rounded-full px-2 py-0.5 text-xs ${activeNav === label ? "bg-white/15 text-white" : "bg-slate-800 text-slate-300"}`}>{count}</span> : null}</button>;
           })}
         </nav>
@@ -491,12 +491,17 @@ export default function Workspace() {
         </header>
 
         <main className="mx-auto max-w-[1500px] p-4 md:p-7">
-          <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-sm font-medium text-blue-700">{today}</p><h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 md:text-[30px]">{pageCopy[activeNav].title}</h1><p className="mt-1 text-sm text-slate-500">{pageCopy[activeNav].description}</p></div>{["Overview", "Requests"].includes(activeNav) ? <NewRequestDialog onCreate={handleCreate} /> : null}</section>
+          <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-sm font-medium text-blue-700">{today}</p><h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 md:text-[30px]">{pageCopy[activeNav].title}</h1><p className="mt-1 text-sm text-slate-500">{pageCopy[activeNav].description}</p></div>{activeNav === "Overview" && apiConfigured ? <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => setActiveNav("Service catalog")}>New structured request</Button> : ["Overview", "Requests"].includes(activeNav) ? <NewRequestDialog onCreate={handleCreate} /> : null}</section>
 
+          {["Submitted requests", "Approvals"].includes(activeNav) ? (apiConfigured && currentUser
+            ? <WorkflowWorkspace key={`${currentUser.id}-${activeNav}`} mode={activeNav === "Approvals" ? "approvals" : "submissions"} request={withSessionRefresh} currentUserId={currentUser.id} initialRequestId={activeNav === "Submitted requests" ? selectedSubmission : null} onEditChanges={() => setActiveNav("My drafts")} />
+            : <p className="mt-6 rounded-xl border bg-white p-6 text-sm">Connect to the API and sign in to use real approval workflows.</p>) : null}
           {["Service catalog", "My drafts"].includes(activeNav) ? (apiConfigured && currentUser
-            ? <CatalogWorkspace key={`${currentUser.id}-${activeNav}`} mode={activeNav === "My drafts" ? "drafts" : "catalog"} request={withSessionRefresh} beforeLeave={beforeLeaveCatalog} onBrowse={() => setActiveNav("Service catalog")} />
+            ? <CatalogWorkspace key={`${currentUser.id}-${activeNav}`} mode={activeNav === "My drafts" ? "drafts" : "catalog"} request={withSessionRefresh} beforeLeave={beforeLeaveCatalog} onBrowse={() => setActiveNav("Service catalog")} onSubmitted={(id) => { setSelectedSubmission(id); setActiveNav("Submitted requests"); }} />
             : <p className="mt-6 rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">Connect the backend and sign in to use the live service catalog. Demo mode does not save drafts.</p>
           ) : null}
+
+          {apiConfigured && ["Overview", "Requests", "Analytics", "Automation"].includes(activeNav) ? <p className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-blue-800">These are legacy prototype metrics and requests. Track catalog-based workflows under Submitted requests and Approvals.</p> : null}
 
           {workspaceError ? <div role="alert" className="mt-5 flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold">Live data could not be loaded</p><p className="mt-1 text-rose-700">{workspaceError}. No demo records are shown while the API is configured.</p></div><Button type="button" variant="outline" className="border-rose-300 bg-white text-rose-800 hover:bg-rose-100" onClick={() => setReloadNonce((value) => value + 1)}>Try again</Button></div> : null}
 
@@ -507,7 +512,7 @@ export default function Workspace() {
             {canViewOperationalAnalytics ? <MetricCard label="AI triage coverage" value={workspaceLoading ? "—" : `${metrics.triage}%`} note="Requests with AI recommendations" icon={Sparkles} tone="bg-violet-50 text-violet-700" /> : null}
           </section> : null}
 
-          {["Overview", "Requests", "Approvals", "AI assistant"].includes(activeNav) ? <section className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.8fr)]">
+          {["Overview", "Requests", "AI assistant"].includes(activeNav) ? <section className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.8fr)]">
             {activeNav !== "AI assistant" ? <article className={`enter enter-delay-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)] ${activeNav !== "Overview" ? "xl:col-span-2" : ""}`}>
               <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4"><div><h2 className="font-semibold text-slate-900">{activeNav === "Approvals" ? "Pending approval" : "Recent requests"}</h2><p className="mt-0.5 text-sm text-slate-500">AI-classified and routed service work</p></div>{activeNav === "Overview" ? <Button variant="ghost" size="sm" className="text-blue-700" onClick={() => setActiveNav("Requests")}>View all<ChevronRight /></Button> : null}</div>
               <Table><TableHeader><TableRow className="bg-slate-50/70 hover:bg-slate-50/70"><TableHead className="pl-5 text-xs uppercase tracking-wide text-slate-500">Request</TableHead><TableHead className="text-xs uppercase tracking-wide text-slate-500">Priority</TableHead><TableHead className="text-xs uppercase tracking-wide text-slate-500">Status</TableHead><TableHead className="pr-5 text-right text-xs uppercase tracking-wide text-slate-500">AI confidence</TableHead></TableRow></TableHeader><TableBody>

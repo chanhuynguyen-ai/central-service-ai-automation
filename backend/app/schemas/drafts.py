@@ -39,7 +39,7 @@ class DraftOut(BaseModel):
     reference: str
     title: str
     description: str
-    status: Literal["draft"] = "draft"
+    status: Literal["draft", "changes_requested"] = "draft"
     request_type_version_id: int
     revision: int
     form_data: dict[str, JsonValue]

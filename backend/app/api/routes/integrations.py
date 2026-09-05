@@ -56,7 +56,7 @@ def intake_from_power_apps(payload: PowerPlatformIntake, db: Session = Depends(g
 )
 def request_status(reference: str, db: Session = Depends(get_db)) -> ServiceRequest:
     request = (
-        db.query(ServiceRequest).filter(ServiceRequest.status != "draft")
+        db.query(ServiceRequest).filter(ServiceRequest.request_type_version_id.is_(None))
         .options(joinedload(ServiceRequest.requester))
         .filter(ServiceRequest.reference == reference).first()
     )
@@ -76,7 +76,7 @@ def approval_decision(
     if not approver or approver.role not in {"approver", "admin"}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Approver not authorized")
     request = (
-        db.query(ServiceRequest).filter(ServiceRequest.status != "draft")
+        db.query(ServiceRequest).filter(ServiceRequest.request_type_version_id.is_(None))
         .options(joinedload(ServiceRequest.requester))
         .filter(ServiceRequest.reference == reference).first()
     )
@@ -105,7 +105,7 @@ def analytics_feed(
     limit: int = Query(default=500, ge=1, le=5000), db: Session = Depends(get_db),
 ) -> list[AnalyticsFeedRow]:
     now = datetime.now(UTC)
-    rows = db.query(ServiceRequest).filter(ServiceRequest.status != "draft").order_by(ServiceRequest.submitted_at.desc()).limit(limit).all()
+    rows = db.query(ServiceRequest).filter(ServiceRequest.request_type_version_id.is_(None)).order_by(ServiceRequest.submitted_at.desc()).limit(limit).all()
     return [AnalyticsFeedRow(
         reference=row.reference, title=row.title, department=row.department,
         category=row.category, priority=row.priority, status=row.status,

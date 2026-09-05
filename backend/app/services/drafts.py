@@ -35,7 +35,7 @@ def owned_draft(db: Session, request_id: int, actor: User) -> ServiceRequest:
     draft = db.query(ServiceRequest).filter(
         ServiceRequest.id == request_id,
         ServiceRequest.requester_id == actor.id,
-        ServiceRequest.status == "draft",
+        ServiceRequest.status.in_(["draft", "changes_requested"]),
     ).first()
     if draft is None:
         raise DraftError(404, "Draft not found")
@@ -51,7 +51,7 @@ def draft_output(db: Session, draft: ServiceRequest) -> DraftOut:
         db=db, validation_schema=version.validation_schema,
     )
     return DraftOut(
-        id=draft.id, reference=draft.reference, title=draft.title,
+        id=draft.id, reference=draft.reference, title=draft.title, status=draft.status,
         description=draft.description, request_type_version_id=version.id,
         revision=draft.draft_revision, form_data=draft.form_data,
         updated_at=draft.updated_at,
@@ -109,7 +109,7 @@ def update_draft(
     result = db.execute(update(ServiceRequest).where(
         ServiceRequest.id == request_id,
         ServiceRequest.requester_id == actor.id,
-        ServiceRequest.status == "draft",
+        ServiceRequest.status.in_(["draft", "changes_requested"]),
         ServiceRequest.draft_revision == payload.revision,
     ).values(
         title=payload.title.strip(), description=payload.description.strip(),

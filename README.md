@@ -1,269 +1,208 @@
 # CentralOps AI
 
-**AI-assisted employee request, approval, and service operations platform.**
+**Employee requests, versioned forms and accountable human approval workflows.**
 
-![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
-![Tests](https://img.shields.io/badge/backend_tests-36_passing-16A34A)
-![Coverage](https://img.shields.io/badge/backend_coverage-90%25-2563EB)
+![Tests](https://img.shields.io/badge/backend_tests-107_passing-16A34A)
+![Coverage](https://img.shields.io/badge/backend_coverage-85%25-2563EB)
 ![License](https://img.shields.io/badge/license-MIT-0F172A)
 
-CentralOps AI turns an employee request into a traceable service workflow: structured
-intake, AI triage, human approval, policy-grounded assistance, SLA monitoring, and
-operational reporting. It is designed as a reusable portfolio project rather than a
-company-specific prototype.
+CentralOps AI is a portfolio-oriented internal service portal. The current governed
+path is **catalog -> structured draft -> assigned sequential approvals**, with
+version snapshots, concurrency protection and preserved revision history. AI stays
+advisory; it does not grant authorization or make approval decisions.
 
-## Why this project exists
+## Current capability: M2 and M3
 
-Internal requests often arrive through chat or email with incomplete context. Service teams
-manually categorize them, find an approver, repeat policy answers, and assemble reports.
-CentralOps centralizes that work while keeping AI in an advisory role.
+An employee selects a published service, saves a typed form and explicitly submits.
+The workflow resolves the direct manager and service lead, gives each person an
+assigned task in sequence, and records Approve, Reject or Request changes.
+Resubmission restarts the chain as a new attempt while retaining old submitted
+values and decisions. Unassigned administrators cannot approve someone else's task.
 
-## Current implementation status
+**Approved is not Completed.** Service work-item creation, fulfillment, the full
+domain timeline/comments, attachments and asynchronous notifications are later
+roadmap slices. This repository is not a production-security certification.
 
-The repository already contains a useful POC for AI triage, policy assistance, analytics,
-Power Platform integration contracts, testing, and reviewer documentation. The core enterprise
-workflow is still intentionally being strengthened: versioned request types, dynamic forms,
-workflow instances, assigned approval tasks, and service-fulfillment records are the next major
-vertical slice.
+Start with [M3 demo and API guide](docs/M3_WORKFLOW_APPROVALS.md),
+[M2 catalog/drafts](docs/M2_CATALOG_DRAFTS.md), the canonical
+[Project Progress](docs/PROJECT_PROGRESS.md) and [Implementation Status](docs/IMPLEMENTATION_STATUS.md).
+Original specifications remain in [`docs/project/`](docs/project/00_INDEX.md).
 
-See [Implementation Status](docs/IMPLEMENTATION_STATUS.md) for the roadmap audit and
-[DKSH JD Alignment](docs/JD_ALIGNMENT_DKSH.md) for the internship-focused evidence plan.
-The original project source-of-truth is preserved under [`docs/project/`](docs/project/00_INDEX.md).
+| Area | Implemented | Boundary |
+|---|---|---|
+| Identity | Argon2, access JWT, hashed rotating refresh sessions, normalized roles | Secure cookies, stronger session hardening and rate limits remain |
+| Catalog | Immutable published form versions, typed renderer, private drafts, required-field validation | Attachments and advanced conditional rules are explicit unsupported cases |
+| Workflow | Versioned sequential ALL steps; USER, MANAGER, ROLE and TEAM_LEAD resolvers | One default workflow per service; no conditional or ANY routing |
+| Decisions | Exact-assignee inbox, revision checks, atomic actions and attempt history | No unassigned admin override; unavailable reviewer fails safely |
+| Data integrity | SQL transactions, request locks, compare-and-swap, unique constraints | CI race probes are not a load benchmark |
+| AI prototype | Mock/Ollama/OpenAI-compatible triage and lexical policy assistance | Evaluated schema-aware AI intake and pgvector RAG are still planned |
+| Power Platform assets | OpenAPI connector, app formulas, flow specification and legacy analytics feed | Real Microsoft tenant evidence is not yet verified |
 
-## Product capabilities
+## Quick start on Windows / Docker
 
-| Area | What is implemented |
-| --- | --- |
-| Employee intake | Validated request form, reference, category, priority, status, and SLA target |
-| AI triage | Category recommendation, priority recommendation, concise summary, confidence, provider and latency |
-| LLM engineering | Mock, Ollama, and OpenAI-compatible providers with JSON parsing and deterministic fallback |
-| Policy assistant | Grounded answers with article title, version, retrieval score, and request context |
-| Human approval | Approver/admin role checks, approve/reject decision, comment, timestamp, and audit event |
-| Operations | Request metrics, SLA compliance, AI coverage, automation success rate, and run history |
-| Power Platform | Custom connector for Power Apps/Power Automate plus a flattened Power BI analytics feed |
-| Quality | 36 backend tests, frontend contract tests, build/type/lint checks, CI workflow, Docker health checks, UAT plan |
+Requires Git and a running Docker Desktop Linux engine. Use a clean working tree:
 
-## Architecture
+```powershell
+git fetch origin
+git switch main
+git pull --ff-only origin main
+docker compose up -d --build --wait --wait-timeout 180
+docker compose exec api alembic current
+docker compose exec api python -m app.db.seed_catalog
+docker compose exec api python -m app.db.seed_workflows
+Start-Process "http://localhost:3000"
+```
+
+For the M3 release the migration head is `e6a0c3f5b712`. Existing data is preserved.
+Catalog/workflow seed commands skip existing definitions; they do not overwrite
+custom routing. Seeded credentials and rules are synthetic local demo data, not
+DKSH policy. Never expose this default stack or its credentials publicly.
+
+| Role in demo | Email | Local-only password |
+|---|---|---|
+| Requester | employee@centralops.demo | Employee123! |
+| Direct manager | manager.finance@centralops.demo | Manager123! |
+| Second reviewer | service.lead@centralops.demo | ServiceLead123! |
+| Unassigned prototype approver | approver@centralops.demo | Approver123! |
+| Administrator | admin@centralops.demo | Admin123! |
+
+Use **Service catalog -> Save draft -> Submit for approval**, then switch to the
+manager and service-lead accounts under **Approvals**. The generic approver has no
+assigned task in this example. Try Request changes, edit under My drafts, resubmit
+and inspect the earlier attempt under Submitted requests.
+
+Web: `http://localhost:3000`. API docs: `http://localhost:8000/docs`.
+Health/readiness: `/health`, `/ready`. The mock AI provider needs no key or GPU.
+
+```powershell
+docker compose ps
+docker compose exec api alembic current
+Invoke-RestMethod "http://localhost:8000/ready"
+```
+
+Stop without deleting data: `docker compose down`. Do not use `down -v` to fix an
+old branch's migration mismatch. Back up persistent development data before schema
+changes. Run Alembic inside the API container when checking its PostgreSQL data;
+local development may target a different SQLite database.
+
+## Architecture and stack
 
 ```mermaid
 flowchart LR
-    U[Employee / Approver] --> R[React workspace]
-    U --> P[Power Platform]
-    R --> F[FastAPI]
-    P --> F
-    F --> D[(PostgreSQL)]
-    F --> A[AI orchestration]
-    A --> K[(Policy knowledge)]
-    A --> L[Ollama / OpenAI-compatible]
+    Employee --> UI[React / TypeScript workspace]
+    Reviewer --> UI
+    UI --> API[FastAPI modular monolith]
+    API --> DB[(PostgreSQL)]
+    API --> W[Versioned workflow and approval service]
+    W --> DB
+    API --> P[Separate legacy AI/integration prototype]
 ```
 
-See [the detailed architecture](docs/architecture.md) for module boundaries, lifecycle,
-provider strategy, and deployment profiles.
+Python 3.12, FastAPI, SQLAlchemy 2, Alembic and Pydantic; React 19/TypeScript with
+the existing vinext/Vite build tooling and Next-compatible app structure;
+PostgreSQL 16 in Docker and SQLite for fast unit/API tests. Redis and MinIO are
+provisioned infrastructure; workflow notifications/file storage are not active yet.
 
-## Technology stack
+## API entry points
 
-- **Backend:** Python 3.11+, FastAPI, SQLAlchemy 2, Pydantic, JWT, Argon2, HTTPX.
-- **Frontend:** React 19, TypeScript, responsive components, accessible dialogs and tables.
-- **Data:** SQLite for zero-setup development; PostgreSQL 16 in Docker; Alembic migrations.
-- **AI:** deterministic test provider, Ollama local models, or OpenAI-compatible endpoints.
-- **Integration:** OpenAPI custom connector, Power Apps formulas, Power Automate flow spec,
-  and Power BI model guidance.
-- **Infrastructure:** PostgreSQL, Redis, and MinIO/S3-compatible storage in Docker Compose.
-- **Delivery:** Docker Compose, GitHub Actions, Ruff, Pytest, and reproducible dependency files.
+All domain paths use `/api/v1` and authentication.
 
-## Quick start with Docker
+| Path | Purpose |
+|---|---|
+| `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/me` | Prototype session lifecycle |
+| `/catalog/request-types` | Published service catalog and ADMIN version configuration |
+| `/requests/drafts` | Owner-only save/read/update/validate draft |
+| `/workflows/definitions` | ADMIN default workflow/version configuration |
+| `/workflows/requests/{id}/submit` | Atomic submission using saved revision |
+| `/workflows/requests` | Authorized submitted requests and immutable attempt details |
+| `/workflows/approval-tasks` | Caller-specific pending/history inbox |
+| `/workflows/approval-tasks/{id}/decisions` | Assigned decision using task version |
 
-Requirements: Docker Desktop with Compose.
+Earlier `/requests`, simple decision/status, `/assistant/chat` request context and
+Power Platform paths are **legacy prototype** surfaces. They cannot mutate or
+expose catalog-based workflows through the old authorization path. Legacy dashboard
+metrics and illustrative charts are not presented as measured M3 operational KPIs.
 
-```bash
-docker compose up --build
-```
+## Development and verification
 
-Open:
-
-- Web workspace: `http://localhost:3000`
-- FastAPI Swagger: `http://localhost:8000/docs`
-- API health: `http://localhost:8000/health`
-- API readiness: `http://localhost:8000/ready`
-- MinIO console: `http://localhost:9001`
-
-Stop the stack:
-
-```bash
-docker compose down
-```
-
-The default Docker profile uses the deterministic AI provider, so a reviewer does not need
-an API key or GPU.
-
-## Demo accounts
-
-| Role | Email | Password |
-| --- | --- | --- |
-| Employee | `employee@centralops.demo` | `Employee123!` |
-| Approver | `approver@centralops.demo` | `Approver123!` |
-| Admin | `admin@centralops.demo` | `Admin123!` |
-
-These accounts and passwords are local demo data. Never reuse them in a shared environment.
-
-## Local development
-
-### Backend
+Backend:
 
 ```bash
 cd backend
-cp ../.env.example .env
-uv sync --extra dev
-uv run alembic upgrade head
-uv run uvicorn app.main:app --reload --port 8000
+uv sync --extra dev --python 3.12
+uv run ruff check app tests
+uv run pytest --cov=app --cov-report=term-missing
 ```
 
-The default database is `backend/centralops.db`. Alembic creates/updates the schema; the API
-then seeds synthetic demo records for local development.
-
-### Frontend
-
-In a second terminal:
+Frontend in a consistent Linux/Node 22 environment:
 
 ```bash
 npm ci
-NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1 npm run dev
-```
-
-When `NEXT_PUBLIC_API_URL` is absent, the frontend uses an interactive in-browser reviewer
-demo. When it is present, users sign in and the workspace reads and writes the FastAPI API.
-
-## Use a real LLM
-
-### Ollama
-
-```env
-LLM_PROVIDER=ollama
-LLM_MODEL=llama3.2:3b
-LLM_BASE_URL=http://localhost:11434
-```
-
-### OpenAI-compatible endpoint
-
-```env
-LLM_PROVIDER=openai_compatible
-LLM_MODEL=<model-name>
-LLM_BASE_URL=https://<provider-host>
-LLM_API_KEY=<secret>
-```
-
-Triage requests strict JSON. If an external provider times out or returns invalid output,
-CentralOps records the fallback and completes classification using deterministic rules.
-
-## Power Platform extension
-
-The core product does not require a Microsoft tenant. Teams that use Microsoft 365 can add:
-
-- Power Apps as another intake channel.
-- Power Automate for approval and email orchestration.
-- Power BI for service and SLA analysis.
-
-Start with the [Power Platform integration guide](integrations/power-platform/README.md).
-The directory includes the custom connector OpenAPI file, Canvas App formulas, an
-environment-neutral flow specification, and Power BI measures.
-
-## API surface
-
-| Method | Route | Purpose |
-| --- | --- | --- |
-| `POST` | `/api/v1/auth/login` | Authenticate a demo user |
-| `GET/POST` | `/api/v1/requests` | List or submit requests |
-| `POST` | `/api/v1/requests/{id}/decision` | Human approval decision |
-| `PATCH` | `/api/v1/requests/{id}/status` | Authorized lifecycle update |
-| `POST` | `/api/v1/assistant/chat` | Grounded policy answer |
-| `GET` | `/api/v1/analytics/summary` | Operational KPIs |
-| `GET` | `/api/v1/automation/runs` | Workflow health and latency |
-| `POST` | `/api/v1/integrations/power-platform/intake` | Power Apps/custom connector intake |
-| `GET` | `/api/v1/integrations/power-platform/analytics-feed` | Power BI-friendly records |
-
-Swagger documents the complete schemas and authorization requirements.
-
-## Verification
-
-```bash
-cd backend
-uv run ruff check app tests
-uv run pytest --cov=app
-
-cd ..
 npm run typecheck
 npm run lint
 npm run build
+node --test tests/*.test.mjs
 ```
 
-Automated tests cover authentication/session rotation, normalized RBAC, request validation, employee isolation, AI triage,
-human approval, grounded citations, management analytics, and Power Platform intake.
+Windows users can use Docker to avoid mixing Windows dependencies with an
+unconfigured WSL Node installation. The `NEXT_PUBLIC_API_URL` build argument in
+Compose connects the real API. Without that variable the frontend is an illustrative
+reviewer demo; it does not persist drafts or exercise the real workflow.
 
-### Data quality exercise
+GitHub CI verifies backend tests, clean SQLite migration, frontend typecheck/lint/
+build/tests. A separate PostgreSQL job runs clean migrations and independent-
+connection races: repeated submission, repeated intermediate/final decisions and
+two different ALL reviewers. Browser smoke runs Chromium against production Docker
+images through private drafts, revision/resubmission and final human approval.
+Current recorded baseline: **107 backend tests, 85% total statement coverage**.
+See the tracker and PR #11 for exact tested commits and workflow run IDs.
 
-The repository includes a small repeatable cleansing/validation flow that mirrors the internship
-requirement for data retrieval, cleansing, and basic analysis:
+Browser/concurrency probes require `CENTRALOPS_E2E=1` and disposable data; they must
+not run on production. Artifacts are synthetic screenshots, not token-bearing traces.
 
-```bash
-python3 scripts/clean_service_requests.py
-```
+## AI and automation direction
 
-It writes a normalized CSV and a JSON quality report under `data/generated/`, including issue
-records, category counts, and completed-request SLA compliance.
+The legacy AI adapter supports `mock`, `ollama` and `openai_compatible` providers.
+Environment keys are documented in `.env.example` and
+[architecture](docs/architecture.md). These adapters do not authorize or route the
+new governed workflow. CI uses `mock`; no real-model accuracy or latency is claimed.
 
-## Repository structure
+The later AI Intake Assistant will use the published catalog and form validator to
+classify intent, extract editable values and ask for missing fields before the user
+confirms submission. Policy RAG will add ingestion, embeddings, pgvector and
+permission-aware grounded citations. Neither milestone is declared complete merely
+because a chat screen exists.
 
-```text
-central-service-ai-automation/
-├── app/                          # React application surface
-├── components/                   # Accessible UI primitives
-├── lib/api.ts                    # Typed FastAPI client
-├── backend/
-│   ├── app/api/routes/           # FastAPI endpoints
-│   ├── app/core/                 # Settings and security
-│   ├── app/db/                   # Session and synthetic seed data
-│   ├── app/models/               # SQLAlchemy entities
-│   ├── app/services/             # LLM, retrieval, workflow logic
-│   └── tests/                    # API and business-flow tests
-├── integrations/power-platform/ # Custom connector and low-code assets
-├── data/                         # Synthetic analytics sample
-├── docs/                         # Architecture, security, UAT, reviewer and CV notes
-├── .github/workflows/ci.yml      # Backend and frontend quality gates
-└── docker-compose.yml            # Web, API, PostgreSQL, optional Ollama
-```
+[Power Platform integration assets](integrations/power-platform/README.md),
+[DKSH JD alignment](docs/JD_ALIGNMENT_DKSH.md) and the
+[data quality exercise](scripts/clean_service_requests.py) support the automation
+internship track. A functioning Microsoft tenant workflow and Power BI report must
+be demonstrated separately before being claimed on a CV.
 
-## Responsible AI
+## Next milestones and known risks
 
-- AI classifies and summarizes; a named human owns approval.
-- Policy answers expose sources and versions.
-- Synthetic data is used by default.
-- Model failures are visible and recoverable.
-- The production-hardening gaps are documented instead of hidden.
+Next is Phase 6 / M4: full request timeline, comments and protected internal notes.
+Then Phase 7 / M5 fulfillment, Phase 8 attachments, Phase 9 notifications, followed
+by Phase 10 AI intake and Phase 11 evaluated policy RAG. Original ordered plan:
+[07_IMPLEMENTATION_PLAN.md](docs/project/07_IMPLEMENTATION_PLAN.md).
 
-Read [security and responsible AI](docs/security-and-responsible-ai.md) before adapting the
-project to real employee data.
+Before shared production use: remediate dependency audit findings, replace default
+secrets, configure TLS/backups, move refresh transport to secure cookies, review
+session revocation/rate limiting and perform broader security/load testing. Current
+refresh logout does not revoke every already-issued access JWT. No blanket security
+or enterprise-readiness claim is made.
 
 ## Reviewer resources
 
-- [Three-minute reviewer walkthrough](docs/reviewer-walkthrough.md)
-- [Prepared UAT and functional test plan](docs/uat-test-plan.md)
-- [CV bullets and honest interview framing](docs/cv-and-interview-notes.md)
-
-## Roadmap
-
-The build order follows `docs/project/07_IMPLEMENTATION_PLAN.md`. The immediate priorities are:
-
-1. Versioned request catalog and dynamic request drafts.
-2. Deterministic workflow engine with manager/service approver resolvers.
-3. Approval-task inbox, audit timeline, and service fulfillment queue.
-4. Background worker, notifications, attachments, and SLA escalation.
-5. Schema-aware AI intake evaluation and policy-document RAG with pgvector/hybrid retrieval.
-6. Power Apps/Power Automate/Power BI tenant evidence for the automation-internship track.
-7. SSO/OIDC, OpenTelemetry, security hardening, and staged deployment.
+- [Current M3 demo and API guide](docs/M3_WORKFLOW_APPROVALS.md)
+- [Canonical progress tracker](docs/PROJECT_PROGRESS.md)
+- [Security and responsible AI](docs/security-and-responsible-ai.md)
+- [Prepared UAT plan](docs/uat-test-plan.md)
+- [Earlier reviewer walkthrough](docs/reviewer-walkthrough.md) and [CV framing](docs/cv-and-interview-notes.md) describe the original prototype; prefer the M3 guide for the new flow.
 
 ## License
 
-[MIT](LICENSE) - reuse is allowed with the copyright and license notice retained.
+[MIT](LICENSE) - retain the copyright and license notice when reusing the project.

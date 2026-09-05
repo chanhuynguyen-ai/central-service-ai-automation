@@ -257,6 +257,11 @@ class ServiceRequest(Base):
         index=True,
     )
     form_data: Mapped[dict] = mapped_column(JSON, default=dict, server_default="{}")
+    approval_state: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    fulfillment_state: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    workflow_attempt: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     draft_revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
 
     # Explicit None is significant for drafts: no submission/SLA clock yet.
