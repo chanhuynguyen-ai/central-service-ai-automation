@@ -133,7 +133,7 @@ def create_pending(
         reservation = storage.presign_upload(
             object_key=object_key,
             mime_type=payload.mime_type,
-            max_bytes=settings.attachment_max_bytes,
+            max_bytes=payload.size_bytes,
         )
     except storage.StorageError as exc:
         raise AttachmentError(503, str(exc)) from exc
