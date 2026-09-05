@@ -17,6 +17,7 @@ const api = (handler) => compile("../lib/activity-api.ts", (name) => { assert.eq
 const ui = () => compile("../components/activity/request-activity.tsx", (name) => {
   if (name === "react") return React;
   if (name === "react/jsx-runtime") return { jsx: (type, props, key) => React.createElement(type, { ...props, key }), jsxs: (type, props, key) => React.createElement(type, { ...props, key }) };
+  if (name === "../attachments/request-attachments") return { RequestAttachments: () => React.createElement("div", { "data-test": "attachments" }) };
   assert.equal(name, "../../lib/activity-api"); return {};
 });
 
