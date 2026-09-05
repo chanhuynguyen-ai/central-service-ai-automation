@@ -37,6 +37,8 @@ jobs:
         run: |
           docker compose exec -T api python -m app.db.seed_workflows
           uv run --no-project --with playwright==1.61.0 python scripts/m3_browser_smoke.py
+      - name: Exercise M4 discussion, internal-note privacy and audit UI
+        run: uv run --no-project --with playwright==1.61.0 python scripts/m4_browser_smoke.py
       - name: Save browser screenshots
         if: always()
         uses: actions/upload-artifact@v4

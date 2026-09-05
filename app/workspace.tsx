@@ -6,6 +6,7 @@ import {
   Clock3, FileText, Inbox, LayoutDashboard, LogOut, Menu, Plus, Search, Send,
   Settings, ShieldCheck, Sparkles, Workflow, X,
 } from "lucide-react";
+import { AuditWorkspace } from "@/components/activity/audit-workspace";
 import { WorkflowWorkspace } from "@/components/workflows/workflow-workspace";
 import { CatalogWorkspace } from "@/components/catalog/catalog-workspace";
 import { Badge } from "@/components/ui/badge";
@@ -104,6 +105,7 @@ const nav: Array<{
   { label: "My drafts", icon: FileText },
   { label: "Requests", icon: Inbox },
   { label: "Approvals", icon: CheckCircle2, roles: ["APPROVER", "ADMIN"] },
+  { label: "Audit log", icon: ShieldCheck, roles: ["ADMIN", "AUDITOR"] },
   { label: "AI assistant", icon: Bot },
   { label: "Analytics", icon: BarChart3, roles: ["APPROVER", "ADMIN"] },
   { label: "Automation", icon: Workflow, roles: ["APPROVER", "ADMIN"] },
@@ -409,6 +411,7 @@ export default function Workspace() {
     Requests: { title: "Legacy service requests", description: "Earlier prototype requests. Use Service catalog and Submitted requests for versioned approval workflows." },
     Approvals: { title: "Assigned approval tasks", description: "Review submitted information and record decisions on tasks assigned to you." },
     "Submitted requests": { title: "Submitted requests", description: "Follow the recorded approval chain and review feedback on your submissions." },
+    "Audit log": { title: "Audit log", description: "Read-only, permission-checked history of system and request actions." },
     "AI assistant": { title: "Policy assistant", description: "Ask grounded questions about policies, routing, and request status." },
     Analytics: { title: "Service analytics", description: "Track demand, SLA compliance, and AI triage coverage." },
     Automation: { title: "Automation monitoring", description: "Review workflow health, run volume, and recoverable failures." },
@@ -502,6 +505,8 @@ export default function Workspace() {
           ) : null}
 
           {apiConfigured && ["Overview", "Requests", "Analytics", "Automation"].includes(activeNav) ? <p className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-blue-800">These are legacy prototype metrics and requests. Track catalog-based workflows under Submitted requests and Approvals.</p> : null}
+
+          {activeNav === "Audit log" && apiConfigured && currentUser && userHasAnyRole(currentUser, "ADMIN", "AUDITOR") ? <AuditWorkspace key={currentUser.id} request={withSessionRefresh} /> : null}
 
           {workspaceError ? <div role="alert" className="mt-5 flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold">Live data could not be loaded</p><p className="mt-1 text-rose-700">{workspaceError}. No demo records are shown while the API is configured.</p></div><Button type="button" variant="outline" className="border-rose-300 bg-white text-rose-800 hover:bg-rose-100" onClick={() => setReloadNonce((value) => value + 1)}>Try again</Button></div> : null}
 

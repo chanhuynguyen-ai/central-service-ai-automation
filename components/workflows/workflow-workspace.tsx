@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { RequestActivity } from "../activity/request-activity";
 import type { AuthenticatedRequest, FormValue } from "../../lib/catalog-api";
 import {
   decideApprovalTask, getSubmission, listApprovalTasks, listSubmissions,
@@ -131,6 +132,7 @@ export function WorkflowWorkspace({ mode, request, currentUserId, initialRequest
           <div className="rounded-xl bg-slate-50 p-4"><h4 className="font-semibold text-slate-800">Submitted information</h4><p className="my-2 whitespace-pre-wrap text-sm text-slate-600">{attempt.snapshot.description}</p><dl className="grid gap-3 sm:grid-cols-2">{attempt.snapshot.form_schema.sections.flatMap((section) => section.fields).map((field) => <div key={field.key}><dt className="text-xs font-medium text-slate-500">{field.label}</dt><dd className="mt-1 break-words whitespace-pre-wrap text-sm text-slate-800">{displayValue(attempt.snapshot.form_data[field.key])}</dd></div>)}</dl></div>
           <ol className="space-y-3">{attempt.steps.map((step) => <li key={step.id} className="rounded-xl border border-slate-200 p-4"><p className="text-sm font-semibold">{step.step_order}. {step.name} <span className="ml-2 font-normal text-slate-500">{stateLabel(step.status)}</span></p>{step.tasks.map((task) => <div key={task.id} className="mt-3"><p className="text-sm text-slate-600">{task.approver_name} / {stateLabel(task.status)}</p>{task.decision ? <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{task.decision.comment || "Approved without additional comment."}</p> : null}{task.can_decide ? <DecisionForm key={`${task.id}-${task.version}`} task={task} request={request} onDecided={onDecided} /> : null}</div>)}</li>)}</ol>
         </article>)}
+        <RequestActivity key={detail.id} requestId={detail.id} request={request} revision={refresh} />
       </> : <p className="rounded-2xl border border-dashed border-slate-300 p-8 text-sm text-slate-500">{selected ? "Opening submitted workflow..." : "Select a submitted request or an assigned task to view its approval progress."}</p>}</div>
     </div>
   </section>;
