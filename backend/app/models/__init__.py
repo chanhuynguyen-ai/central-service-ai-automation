@@ -1,5 +1,6 @@
 from app.models.activity import RequestComment, RequestEvent
 from app.models.catalog import RequestType, RequestTypeVersion
+from app.models.fulfillment import ServiceWorkItem
 from app.models.models import (
     Approval,
     AuditEvent,
@@ -25,7 +26,7 @@ from app.models.workflows import (
 )
 
 __all__ = [
-    "RequestComment", "RequestEvent",
+    "RequestComment", "RequestEvent", "ServiceWorkItem",
     "ApprovalDecision", "ApprovalTask", "WorkflowDefinition", "WorkflowInstance",
     "WorkflowStepDefinition", "WorkflowStepInstance", "WorkflowVersion",
     "Approval",

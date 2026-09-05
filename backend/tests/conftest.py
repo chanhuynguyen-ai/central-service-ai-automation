@@ -3,7 +3,7 @@ from collections.abc import Generator
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.db.seed import seed_data
 from app.db.session import Base, get_db
@@ -35,6 +35,17 @@ def client(tmp_path) -> Generator[TestClient, None, None]:
     app.dependency_overrides.clear()
     Base.metadata.drop_all(bind=engine)
     engine.dispose()
+
+
+@pytest.fixture()
+def db_session(client: TestClient) -> Generator[Session, None, None]:
+    """Open a seeded test DB session from the same override used by the API client."""
+    generator = client.app.dependency_overrides[get_db]()
+    db = next(generator)
+    try:
+        yield db
+    finally:
+        generator.close()
 
 
 def login(client: TestClient, role: str = "employee") -> dict[str, str]:

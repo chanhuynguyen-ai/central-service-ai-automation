@@ -123,7 +123,7 @@ export function WorkflowWorkspace({ mode, request, currentUserId, initialRequest
           <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">{detail.reference}</p><h2 className="mt-2 text-xl font-semibold">{detail.title}</h2>
           <p className="mt-2 text-sm text-slate-600">{detail.requester_name} / {detail.requester_department}</p>
           <p className="mt-3 text-sm font-semibold capitalize" role="status">Request status: {stateLabel(detail.status)}</p>
-          {detail.status === "approved" ? <p className="mt-3 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">Approval completed. Service fulfillment has not started; it is a separate lifecycle.</p> : null}
+          {detail.status === "approved" ? <div className="mt-3 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800"><p>Approval completed. Service fulfillment has not started; it is a separate lifecycle.</p>{detail.fulfillment_state === "queued" ? <p className="mt-1 font-medium">A service work item is queued for the responsible service team.</p> : null}</div> : null}
           {detail.status === "changes_requested" && detail.requester_id === currentUserId ? <div className="mt-4 space-y-2"><p className="text-sm text-amber-800">Review the feedback below, edit under My drafts, save, then resubmit. The whole approval chain restarts with a new attempt; earlier decisions remain in history.</p><button className={button} type="button" onClick={onEditChanges}>Return to My drafts</button></div> : null}
         </article>
         {[...detail.attempts].reverse().map((attempt) => <article key={attempt.id} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 md:p-7">

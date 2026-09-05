@@ -23,6 +23,7 @@ from app.schemas.workflows import (
     WorkflowDefinitionOut,
     WorkflowVersionInput,
 )
+from app.services import fulfillment as fulfillment_service
 from app.services import workflows as service
 
 router = APIRouter()
@@ -33,7 +34,7 @@ def transaction(db: Session) -> Generator[None, None, None]:
     try:
         yield
         db.commit()
-    except service.WorkflowError as exc:
+    except (service.WorkflowError, fulfillment_service.FulfillmentError) as exc:
         db.rollback()
         raise HTTPException(exc.status_code, exc.detail) from exc
     except IntegrityError as exc:
@@ -135,4 +136,12 @@ def inbox(
 @router.post("/approval-tasks/{task_id}/decisions")
 def decide(task_id: int, payload: DecisionInput, db: Session = Depends(get_db), actor: User = Depends(get_current_user)):
     with transaction(db):
-        return service.request_output(db, service.decide_task(db, actor, task_id, payload), actor)
+        request = service.decide_task(db, actor, task_id, payload)
+        if request.status == "approved" and request.fulfillment_state in {None, "not_started", "not_queued"}:
+            instance = db.query(WorkflowInstance).filter_by(
+                request_id=request.id, attempt=request.workflow_attempt,
+            ).first()
+            if instance is None:
+                raise service.WorkflowError(409, "Approved workflow instance is unavailable")
+            fulfillment_service.ensure_work_item(db, request, instance.snapshot, actor)
+        return service.request_output(db, request, actor)

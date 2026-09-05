@@ -1,116 +1,115 @@
 # CentralOps AI - Project Progress Tracker
 
-**Updated:** 2026-09-05
-**Current delivery:** PR #12 - request activity, discussions and audit (M4)
-**Implementation branch:** `feat/request-timeline-audit`
+**Updated:** 2026-09-05  
+**Current delivery:** PR #13 - governed service fulfillment (M5)  
+**Implementation branch:** `feat/service-fulfillment`
 
-This is the canonical living tracker. Original requirements remain in
-`docs/project/`; earlier status snapshots are preserved in `docs/history/`.
-PR #12 records its exact final tested HEAD and merge state. Passing a feature gate
-is not a production-security or regulatory-compliance certification.
+This is the canonical living tracker. Product/architecture requirements remain in
+`docs/project/`; historical delivery snapshots remain in `docs/history/`. Passing
+CI is evidence for the tested behavior, not a production-security, performance or
+regulatory certification.
 
 ## Milestones
 
 | Milestone | Verified state |
 |---|---|
-| M1 secure API foundation | Auth/session/RBAC prototype merged; production transport/rate-limit hardening remains |
+| M1 secure API foundation | Merged; auth/session/RBAC prototype and server-side permissions |
 | Phase 3 role-aware frontend | Merged in PR #8 |
-| M2 private structured drafts | PR #9/#10 merged; browser/PostgreSQL regression gates retained |
-| M3 sequential assigned approvals | PR #11 merged at f9ef76f; user reports local stack checks passed |
-| M4 activity/comments/audit | Implemented and verified; PR #12 records integration into main |
-| M5 fulfillment | Next; Approved still records fulfillment as not_queued |
-| M6 async communication | Worker/notification delivery not implemented |
-| M7/M8 AI intake and RAG | Later phases; legacy triage/lexical retrieval are not these milestones |
+| M2 structured catalog/drafts | Merged in PR #9/#10 |
+| M3 sequential approvals | Merged in PR #11 |
+| M4 timeline/comments/audit | Merged in PR #12 at `6e95a28` |
+| **M5 service fulfillment** | **Implemented and verified on PR #13 checkpoint `05c264b`; awaiting PR delivery cleanup/merge** |
+| M6 async communication | Not implemented; Redis infrastructure only |
+| M7 AI intake | Later phase; legacy triage is not M7 |
+| M8 policy RAG | Later phase; lexical prototype is not M8 |
 
-## Delivered in M4
+## Delivered in M5
 
-- Separate append-only domain events and comment records over the existing
-  service request; enriched existing audit_events rather than a duplicate audit store.
-- Public discussion and restricted internal notes with server-side authorization,
-  owner exclusion for internal content even for an ADMIN requester, and read-only
-  auditor behavior. Mixed roles do not promote auditor read scope into write scope.
-- Authorization filtering precedes keyset pagination. No internal bodies/events
-  are sent to the requester. Never-submitted drafts and legacy requests stay outside
-  the activity endpoints; M3 submitted snapshots remain unchanged.
-- Idempotent comment keys, shared request-row locks and unique constraints.
-  Comment, audit and domain event are atomic; failed writes cannot leave ghost events.
-- Transactional workflow events, safe auth/catalog/workflow audit metadata and
-  ORM role-assignment audit. Privileged audit reads are themselves recorded.
-- Database and ORM history-mutation guards. PostgreSQL UPDATE/DELETE/TRUNCATE
-  and SQLite UPDATE/DELETE protection are explicitly tested.
-- Recognized prior M3 audits are imported with original times/source IDs and a
-  visible backfill label. No invented history or copied private draft content.
-- Request detail includes discussion, timeline, audience warnings, explicit internal
-  confirmation, read-only permissions, HTML-safe plain text and cursor loading.
-- ADMIN/AUDITOR Audit log workspace with filters, metadata-only rows and request
-  correlation IDs. Attachments remain an honest unavailable placeholder.
+- Final human approval creates exactly one `ServiceWorkItem` in the same business
+  transaction; a missing deterministic owner service team fails safely instead of
+  leaving an approved orphan.
+- Owner team comes from the published request type snapshot, with a pinned TEAM_LEAD
+  resolver fallback. Later configuration edits cannot reroute historical submissions.
+- Work lifecycle: `QUEUED -> ASSIGNED -> IN_PROGRESS -> WAITING_REQUESTER ->
+  IN_PROGRESS -> RESOLVED -> CLOSED`.
+- Request aggregate remains distinct from approval: queued/assigned remain approved,
+  active service work becomes `in_progress`, resolution becomes `resolved`, and only
+  close makes the governed request `completed`.
+- Team-scoped server authorization: SERVICE_AGENT/SERVICE_LEAD require exact team
+  membership/leadership; ADMIN is cross-team. APPROVER alone cannot manage service work.
+- Agents can self-claim; team leads/admin may assign an eligible member through the
+  action API. Post-assignment transitions require the assignee or lead/admin.
+- Compare-and-swap versioning plus row locking prevents stale/double actions.
+  PostgreSQL CI races independent claims and verifies one winner/one 409.
+- Service lifecycle audit/domain events are safe, append to the M4 timeline and do
+  not copy resolution text into audit metadata.
+- New authenticated `/service-queue` UI supports Team queue, Unassigned, Assigned to
+  me, status filtering, claim/start/wait/resume/resolve/close and resolution summary.
+- Requester-visible timeline now shows queue, assignment, start, wait, resume,
+  resolution and closure.
 
-## Verification checkpoints
+## Verification checkpoint
 
-Verified checkpoint HEAD: `d2253f1e2798de449809fe3fb4bdbd4a1869c934`.
-The delivery cleanup updates this tracker and removes a temporary source-export
-step only; it does not change the tested application code. PR #12 records the
-final cleanup HEAD and its complete gate results before merge.
+Application checkpoint: `05c264ba88ce8087865c930013d84bb1b3ffabb5`.
 
-| Gate | Recorded evidence |
+| Gate | Evidence |
 |---|---|
-| CI backend + frontend | #39 / 33968236734 SUCCESS: 125 backend tests, 85% total coverage; TypeScript, ESLint, build and executable frontend tests |
-| Chromium/Docker M2-M4 | #15 / 33968236746 SUCCESS: public persistence, escaped HTML, internal body/event isolation, account switch and auditor UI |
-| PostgreSQL M4 gate | #12 / 33968236748 SUCCESS: clean migration, M3 races, idempotent comment and DB append-only probes |
+| CI backend + frontend | **#65 / 33971368204 SUCCESS** - Ruff, clean SQLite migration, **134 backend tests**, **83% total statement coverage**, TypeScript, ESLint, production build and frontend tests |
+| PostgreSQL workflow gate | **#38 / 33971368207 SUCCESS** - clean PostgreSQL migration, M3 workflow races, M4 activity guards, M5 final queueing and concurrent claim probe |
+| Production Docker + Chromium | **#41 / 33971368246 SUCCESS** - M2/M3/M4 regressions plus M5 queued -> claim -> start -> wait -> resume -> resolve -> close and requester completed timeline |
 
-Screenshots from that full M4 browser run were downloaded and visually inspected.
-Mixed-role writing scope and catalog/workflow configuration audit are included in
-the 125 passing tests. All 18 activity/role/migration-focused tests and Ruff also
-passed in the independent local sandbox. A full sandbox rerun hit the execution
-time limit and is not counted as a full local PASS. The
-complete-suite results above come from GitHub Actions. PR #12 records the final
-branch HEAD and gate/merge status, including this documentation checkpoint.
-
-Normal API fixtures use SQLite. Separate CI probes exercise real PostgreSQL row
-locks, concurrent writes and database triggers. CI uses mock AI, no production
-services or user database. No load-test or real-provider accuracy claim is made.
+Normal API fixtures use SQLite for speed. Dedicated CI probes use PostgreSQL with
+independent connections for the concurrency behavior that SQLite cannot prove.
+Browser smoke uses disposable PostgreSQL and production Docker images with synthetic
+demo data. No load benchmark or external AI/provider quality claim is made.
 
 ## Database and migration
 
-Latest revision: `f7b1d4a6c823`, following M3 `e6a0c3f5b712`.
-Existing requests/drafts/decisions are preserved. Back up persistent data first.
-Downgrade refuses loss of events/comments/enriched audit. Do not use volume deletion
-or an older application branch as a rollback plan after this migration.
+M5 revision: `g8c2e5b7d934`, following M4 `f7b1d4a6c823`.
 
-## Files and review guide
+The migration adds `service_work_items`, indexes and a unique request-to-work-item
+constraint. It backfills already-approved requests only when the pinned workflow
+snapshot provides a deterministic active service team. Downgrade refuses to discard
+progressed/assigned work. Back up persistent development data before schema changes;
+do not use volume deletion as a migration or rollback method.
 
-- Models/schemas: `backend/app/models/activity.py`, `schemas/activity.py`, existing model exports/envelope.
-- Policy/transactions: `backend/app/services/activity.py`, `services/audit.py`, M3 workflow audit adapter.
-- API: `backend/app/api/routes/activity.py`, `audit.py`; auth/catalog hooks and actor context.
-- Migration: `backend/alembic/versions/f7b1d4a6c823_add_request_activity.py`.
-- Tests: `backend/tests/test_activity.py`, `test_activity_migration.py`, `test_activity_roles.py`, `tests/activity.test.mjs`.
-- PostgreSQL probe: `backend/app/db/verify_activity.py`.
-- UI/client: `components/activity/`, `lib/activity-api.ts`, workflow-detail and sidebar integration.
-- Browser gate: `scripts/m4_browser_smoke.py`; existing CI pipelines extended, not replaced.
+## Primary M5 files
 
-## Limits that remain explicit
+- Domain model: `backend/app/models/fulfillment.py`
+- Schemas: `backend/app/schemas/fulfillment.py`
+- Service/authorization/state machine: `backend/app/services/fulfillment.py`
+- API: `backend/app/api/routes/fulfillment.py`
+- Final-approval integration: `backend/app/api/routes/workflows.py`
+- Migration: `backend/alembic/versions/g8c2e5b7d934_add_service_fulfillment.py`
+- PostgreSQL race probe: `backend/app/db/verify_fulfillment_concurrency.py`
+- Backend tests: `backend/tests/test_fulfillment.py`, `test_fulfillment_api.py`
+- Frontend: `app/service-queue/page.tsx`, `components/fulfillment/service-queue.tsx`, `lib/fulfillment-api.ts`
+- Browser gate: `scripts/m5_browser_smoke.py`
+- Run/reviewer guide: `docs/M5_SERVICE_FULFILLMENT.md`
 
-Append-only triggers are not tamper-proof against a database owner. Retention,
-redaction/erasure, archival, log growth and externally secured audit storage remain.
-Legacy stored audit JSON is filtered at read time, not retroactively purged.
-Raw SQL role changes outside the ORM are not claimed as application-audited.
-Unsent comment text is not persistent; save before navigating away.
+## Explicit limits
 
-Existing prototype auth uses refresh JSON/sessionStorage; logout does not revoke
-already-issued access JWTs. Rate limits, secure cookies, TLS/backups, dependency
-audit remediation, full deployment/load/security review remain necessary before
-shared production use. Real Microsoft-tenant integrations are not yet verified.
-No fulfillment, attachments, asynchronous delivery or evaluated AI/RAG is claimed.
+The queue does not claim an SLA-at-risk calculation yet. The roadmap has a dedicated
+Phase 13 for business-calendar SLA and escalation rules; M5 reserves `due_at` rather
+than inventing a misleading SLA policy. The recruiter/demo UI focuses on agent
+self-claim; lead-to-agent assignment exists in the server-side action API, while a
+staff directory/picker belongs in later operations/admin UX.
+
+M5 does not add attachments, notification delivery, AI intake or pgvector RAG.
+Existing prototype auth still uses browser session storage/JSON refresh transport;
+secure-cookie transport, immediate access-JWT revocation, rate limiting, dependency
+remediation, TLS/backups, broader load/failure/security review and real Microsoft
+tenant validation remain before shared production use.
 
 ## Next
 
-Phase 7 / M5: service work item created exactly once after final approval, scoped
-team queue, assignment, start/wait/resolve/close and propagation into this timeline.
-No approval should be silently converted to completed fulfillment.
+**Phase 8 - Attachments:** authorized MinIO/S3-compatible object storage, presigned
+upload completion and server-authorized short-lived download URLs. Malware scanning
+remains a later security hook. Do not jump to AI before the governed standard request
+path remains reliable through file handling and asynchronous communication.
 
 ## Run
 
-Read [M4 activity/audit guide](M4_ACTIVITY_AUDIT.md), [M3 workflow guide](M3_WORKFLOW_APPROVALS.md)
-and [M2 catalog guide](M2_CATALOG_DRAFTS.md). Pull merged main, rebuild Compose,
-check Alembic in the API container, then open an existing submitted request.
-No M4 seed or local patch ZIP is needed.
+After PR #13 is merged, pull `main`, rebuild Compose, check Alembic in the API
+container and use [M5_SERVICE_FULFILLMENT.md](M5_SERVICE_FULFILLMENT.md). Existing
+M2/M3/M4 guides remain valid for catalog, approvals and activity/audit behavior.

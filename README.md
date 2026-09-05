@@ -1,56 +1,58 @@
 # CentralOps AI
 
-**Employee requests, versioned forms and accountable human approval workflows.**
+**Governed employee requests from structured intake through human approval and service fulfillment.**
 
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
-![Tests](https://img.shields.io/badge/backend_tests-CI_verified-16A34A)
-![Coverage](https://img.shields.io/badge/backend_coverage-85%25-2563EB)
+![Tests](https://img.shields.io/badge/backend_tests-134_passing-16A34A)
+![Coverage](https://img.shields.io/badge/backend_coverage-83%25-2563EB)
 ![License](https://img.shields.io/badge/license-MIT-0F172A)
 
-CentralOps AI is a portfolio-oriented internal service portal. The current governed
-path is **catalog -> structured draft -> assigned sequential approvals**, with
-version snapshots, concurrency protection and preserved revision history. AI stays
-advisory; it does not grant authorization or make approval decisions.
+CentralOps AI is a portfolio-oriented internal service portal built as a modular
+monolith. The verified governed path is now:
 
-## Current capability: M2, M3 and M4
+**catalog -> versioned private draft -> deterministic assigned approvals -> service
+team queue -> assignment -> fulfillment -> requester timeline/audit**.
 
-An employee selects a published service, saves a typed form and explicitly submits.
-The workflow resolves the direct manager and service lead, gives each person an
-assigned task in sequence, and records Approve, Reject or Request changes.
-Resubmission restarts the chain as a new attempt while retaining old submitted
-values and decisions. Unassigned administrators cannot approve someone else's task.
+AI remains advisory. It never grants authorization, chooses final approval authority
+or bypasses deterministic business rules.
 
-M4 adds a request activity timeline, public discussion, protected internal notes
-and a privileged audit log. Comments are plain text, append-only and idempotent;
-authorization is enforced before querying or paging internal content.
+## Current capability: M2-M5
 
-**Approved is not Completed.** Service work-item creation, fulfillment, attachments
-and asynchronous notifications remain later roadmap slices. This repository is not a production-security certification.
+An employee selects a published service, saves a typed private form and explicitly
+submits it. The workflow resolves scoped human reviewers, preserves a snapshot of the
+form/workflow version and records approve/reject/request-changes decisions. A final
+approval creates exactly one work item for the snapshotted owner service team.
 
-Start with [M4 activity and audit](docs/M4_ACTIVITY_AUDIT.md),
-[M3 demo and API guide](docs/M3_WORKFLOW_APPROVALS.md),
-[M2 catalog/drafts](docs/M2_CATALOG_DRAFTS.md), the canonical
-[Project Progress](docs/PROJECT_PROGRESS.md) and [Implementation Status](docs/IMPLEMENTATION_STATUS.md).
-Original specifications remain in [`docs/project/`](docs/project/00_INDEX.md).
+Authorized service staff then claim/receive the work, start it, optionally wait for
+the requester, resume, resolve with an outcome and close it. Only closure marks the
+request completed. M4 timeline/discussion/audit records the governed lifecycle.
+
+Start with [M5 service fulfillment](docs/M5_SERVICE_FULFILLMENT.md),
+[M4 activity/audit](docs/M4_ACTIVITY_AUDIT.md),
+[M3 approvals](docs/M3_WORKFLOW_APPROVALS.md),
+[M2 catalog/drafts](docs/M2_CATALOG_DRAFTS.md), and the canonical
+[Project Progress](docs/PROJECT_PROGRESS.md).
 
 | Area | Implemented | Boundary |
 |---|---|---|
-| Identity | Argon2, access JWT, hashed rotating refresh sessions, normalized roles | Secure cookies, stronger session hardening and rate limits remain |
-| Catalog | Immutable published form versions, typed renderer, private drafts, required-field validation | Attachments and advanced conditional rules are explicit unsupported cases |
-| Workflow | Versioned sequential ALL steps; USER, MANAGER, ROLE and TEAM_LEAD resolvers | One default workflow per service; no conditional or ANY routing |
-| Decisions | Exact-assignee inbox, revision checks, atomic actions and attempt history | No unassigned admin override; unavailable reviewer fails safely |
-| Activity/audit | Timeline, scoped discussions, safe audit metadata, idempotent writes and append-only DB guards | Not WORM/tamper-proof against a DB owner; retention/redaction remains |
-| Data integrity | SQL transactions, request locks, compare-and-swap, unique constraints | CI race probes are not a load benchmark |
-| AI prototype | Mock/Ollama/OpenAI-compatible triage and lexical policy assistance | Evaluated schema-aware AI intake and pgvector RAG are still planned |
-| Power Platform assets | OpenAPI connector, app formulas, flow specification and legacy analytics feed | Real Microsoft tenant evidence is not yet verified |
+| Identity | Argon2, access JWT, rotating hashed refresh sessions, normalized roles | Secure cookies, stronger revocation/rate limits remain |
+| Catalog | Published immutable form versions, typed renderer, private drafts | Attachments/advanced conditional form rules remain |
+| Approval workflow | Sequential ALL steps; USER, MANAGER, ROLE, TEAM_LEAD resolvers; exact-assignee decisions | No conditional/ANY routing or delegation |
+| Activity/audit | Request timeline, public discussion, internal notes, safe audit metadata and append-only guards | Not WORM/tamper-proof against a DB owner; retention policy remains |
+| Fulfillment | Exactly-one work item after final approval, scoped queue, assignment, start/wait/resume/resolve/close | SLA-at-risk semantics and richer staffing UX remain |
+| Data integrity | Transactions, row locks, optimistic versions, unique constraints and PostgreSQL race probes | CI races are not a load benchmark |
+| AI prototype | Mock/Ollama/OpenAI-compatible legacy triage and lexical policy helper | Evaluated schema-aware AI intake and pgvector RAG remain planned |
+| Power Platform assets | Connector/formula/flow specifications | Real Microsoft tenant evidence is not verified |
 
-## Quick start on Windows / Docker
+## Quick start - Windows + Docker
 
-Requires Git and a running Docker Desktop Linux engine. Use a clean working tree:
+Requirements: Git and Docker Desktop with the Linux engine running.
 
 ```powershell
+Set-Location "C:\AI_project\central-service-ai-automation"
+git status --short
 git fetch origin
 git switch main
 git pull --ff-only origin main
@@ -58,86 +60,106 @@ docker compose up -d --build --wait --wait-timeout 180
 docker compose exec api alembic current
 docker compose exec api python -m app.db.seed_catalog
 docker compose exec api python -m app.db.seed_workflows
+Invoke-RestMethod "http://localhost:8000/health"
+Invoke-RestMethod "http://localhost:8000/ready"
 Start-Process "http://localhost:3000"
 ```
 
-For the M4 release the migration head is `f7b1d4a6c823`. Existing data is preserved.
-Catalog/workflow seed commands skip existing definitions; they do not overwrite
-custom routing. Seeded credentials and rules are synthetic local demo data, not
-DKSH policy. Never expose this default stack or its credentials publicly.
+M5 migration head: **`g8c2e5b7d934`**, following M4 `f7b1d4a6c823`.
+Do not delete persistent volumes to switch schema versions. Back up development data
+before migrations. Seed commands use synthetic local demo data and skip existing
+catalog/workflow definitions.
 
-| Role in demo | Email | Local-only password |
+### Demo accounts
+
+| Role | Email | Local-only password |
 |---|---|---|
-| Requester | employee@centralops.demo | Employee123! |
-| Direct manager | manager.finance@centralops.demo | Manager123! |
-| Second reviewer | service.lead@centralops.demo | ServiceLead123! |
-| Unassigned prototype approver | approver@centralops.demo | Approver123! |
-| Administrator | admin@centralops.demo | Admin123! |
-| Read-only auditor | auditor@centralops.demo | Auditor123! |
+| Requester | `employee@centralops.demo` | `Employee123!` |
+| Direct manager | `manager.finance@centralops.demo` | `Manager123!` |
+| Service lead / final reviewer | `service.lead@centralops.demo` | `ServiceLead123!` |
+| Service agent | `service.agent@centralops.demo` | `ServiceAgent123!` |
+| Prototype approver | `approver@centralops.demo` | `Approver123!` |
+| Administrator | `admin@centralops.demo` | `Admin123!` |
+| Read-only auditor | `auditor@centralops.demo` | `Auditor123!` |
 
-Use **Service catalog -> Save draft -> Submit for approval**, then switch to the
-manager and service-lead accounts under **Approvals**. The generic approver has no
-assigned task in this example. Try Request changes, edit under My drafts, resubmit
-and inspect the earlier attempt under Submitted requests. M4 discussion and timeline
-appear below the attempts; ADMIN/AUDITOR accounts also have Audit log navigation.
+Demo sequence:
 
-Web: `http://localhost:3000`. API docs: `http://localhost:8000/docs`.
-Health/readiness: `/health`, `/ready`. The mock AI provider needs no key or GPU.
+1. Requester: **Service catalog -> Save draft -> Submit for approval**.
+2. Manager then Service Lead: **Approvals -> Approve**.
+3. Service Agent: open `http://localhost:3000/service-queue`, claim the queued work,
+   start it, optionally wait/resume, resolve with a summary and close it.
+4. Requester: open **Submitted requests** and inspect completed status/timeline.
+5. Auditor/Admin: inspect **Audit log** metadata.
+
+Web: `http://localhost:3000`  
+Service queue: `http://localhost:3000/service-queue`  
+API docs: `http://localhost:8000/docs`
+
+Stop without deleting data:
 
 ```powershell
-docker compose ps
-docker compose exec api alembic current
-Invoke-RestMethod "http://localhost:8000/ready"
+docker compose down
 ```
 
-Stop without deleting data: `docker compose down`. Do not use `down -v` to fix an
-old branch's migration mismatch. Back up persistent development data before schema
-changes. Run Alembic inside the API container when checking its PostgreSQL data;
-local development may target a different SQLite database.
-
-## Architecture and stack
+## Architecture
 
 ```mermaid
 flowchart LR
-    Employee --> UI[React / TypeScript workspace]
+    Employee --> UI[React / TypeScript]
     Reviewer --> UI
+    Agent[Service agent] --> UI
     UI --> API[FastAPI modular monolith]
     API --> DB[(PostgreSQL)]
-    API --> W[Versioned workflow and approval service]
-    W --> DB
-    API --> P[Separate legacy AI/integration prototype]
+    API --> WF[Versioned workflow]
+    API --> F[Service fulfillment state machine]
+    WF --> DB
+    F --> DB
+    API --> Legacy[Advisory AI / integration prototype]
 ```
 
-Python 3.12, FastAPI, SQLAlchemy 2, Alembic and Pydantic; React 19/TypeScript with
-the existing vinext/Vite build tooling and Next-compatible app structure;
-PostgreSQL 16 in Docker and SQLite for fast unit/API tests. Redis and MinIO are
-provisioned infrastructure; workflow notifications/file storage are not active yet.
+Stack: Python 3.12, FastAPI, SQLAlchemy 2, Alembic, Pydantic, React 19/TypeScript,
+PostgreSQL 16, Docker Compose. SQLite is used for fast ordinary API tests; dedicated
+PostgreSQL CI verifies lock/concurrency behavior. Redis and MinIO are provisioned but
+notification delivery and attachment storage are later phases.
 
-## API entry points
+## Governed API entry points
 
-All domain paths use `/api/v1` and authentication.
+All paths use `/api/v1` and authentication.
 
 | Path | Purpose |
 |---|---|
-| `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/me` | Prototype session lifecycle |
-| `/catalog/request-types` | Published service catalog and ADMIN version configuration |
-| `/requests/drafts` | Owner-only save/read/update/validate draft |
-| `/workflows/definitions` | ADMIN default workflow/version configuration |
-| `/workflows/requests/{id}/submit` | Atomic submission using saved revision |
-| `/workflows/requests` | Authorized submitted requests and immutable attempt details |
-| `/workflows/approval-tasks` | Caller-specific pending/history inbox |
-| `/workflows/approval-tasks/{id}/decisions` | Assigned decision using task version |
-| `/activity/requests/{id}/timeline`, `/comments`, `/permissions` | Scoped discussion and append-only activity |
+| `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/me` | Session lifecycle |
+| `/catalog/request-types` | Published catalog and ADMIN version configuration |
+| `/requests/drafts` | Owner-only private drafts |
+| `/workflows/definitions` | ADMIN workflow/version configuration |
+| `/workflows/requests/{id}/submit` | Atomic submission from saved revision |
+| `/workflows/requests` | Authorized submitted requests/history |
+| `/workflows/approval-tasks` | Exact-assignee approval inbox |
+| `/workflows/approval-tasks/{id}/decisions` | Version-checked human decision |
+| `/activity/requests/{id}/...` | Scoped timeline/comments/permissions |
 | `/audit/events` | ADMIN/AUDITOR metadata-only audit view |
+| `/fulfillment/work-items` | Authorized team/unassigned/mine service queue |
+| `/fulfillment/work-items/{id}/actions` | assign/start/wait/resume/resolve/close |
 
-Earlier `/requests`, simple decision/status, `/assistant/chat` request context and
-Power Platform paths are **legacy prototype** surfaces. They cannot mutate or
-expose catalog-based workflows through the old authorization path. Legacy dashboard
-metrics and illustrative charts are not presented as measured M3 operational KPIs.
+Legacy `/requests`, simple decision/status, request-context assistant and Power
+Platform endpoints cannot mutate/expose the governed catalog/workflow path through
+old authorization rules.
 
-## Development and verification
+## Verification
 
-Backend:
+M5 application checkpoint: **`05c264ba88ce8087865c930013d84bb1b3ffabb5`**.
+
+- **CI #65 / 33971368204 SUCCESS:** Ruff, clean SQLite migration, **134 backend
+  tests**, **83% coverage**, frontend TypeScript, ESLint, production build and tests.
+- **PostgreSQL #38 / 33971368207 SUCCESS:** clean migration, M3 decision/submission
+  races, M4 append-only/idempotency checks and M5 exactly-once queue/concurrent claim.
+- **Browser #41 / 33971368246 SUCCESS:** production Docker + PostgreSQL + Chromium
+  through M2/M3/M4 regressions and the complete M5 service lifecycle.
+
+Browser/concurrency checks use disposable synthetic data with `CENTRALOPS_E2E=1`.
+They are functional verification, not production certification or load testing.
+
+Backend developer commands:
 
 ```bash
 cd backend
@@ -146,7 +168,7 @@ uv run ruff check app tests
 uv run pytest --cov=app --cov-report=term-missing
 ```
 
-Frontend in a consistent Linux/Node 22 environment:
+Frontend:
 
 ```bash
 npm ci
@@ -156,63 +178,37 @@ npm run build
 node --test tests/*.test.mjs
 ```
 
-Windows users can use Docker to avoid mixing Windows dependencies with an
-unconfigured WSL Node installation. The `NEXT_PUBLIC_API_URL` build argument in
-Compose connects the real API. Without that variable the frontend is an illustrative
-reviewer demo; it does not persist drafts or exercise the real workflow.
-
-GitHub CI verifies backend tests, clean SQLite migration, frontend typecheck/lint/
-build/tests. A separate PostgreSQL job runs clean migrations and independent-
-connection races: repeated submission, repeated intermediate/final decisions and
-two different ALL reviewers. Browser smoke runs Chromium against production Docker
-images through private drafts, revision/resubmission and final human approval.
-M4 CI checkpoint: **125 backend tests, 85% total statement coverage**, including
-mixed-role write-scope and configuration-audit checks. See the tracker and PR #12
-for exact final tested commits and workflow run IDs. M4 also tests raw SQL mutation guards, historic
-backfill, internal-note isolation, HTML escaping and idempotent comment retries.
-
-Browser/concurrency probes require `CENTRALOPS_E2E=1` and disposable data; they must
-not run on production. Artifacts are synthetic screenshots, not token-bearing traces.
-
 ## AI and automation direction
 
-The legacy AI adapter supports `mock`, `ollama` and `openai_compatible` providers.
-Environment keys are documented in `.env.example` and
-[architecture](docs/architecture.md). These adapters do not authorize or route the
-new governed workflow. CI uses `mock`; no real-model accuracy or latency is claimed.
+The existing legacy adapter supports `mock`, `ollama` and `openai_compatible` modes,
+but the governed workflow does not depend on model output for authorization or
+approval. Phase 10 will add schema-aware editable AI intake; Phase 11 will add
+permission-aware pgvector policy RAG with grounded citations and evaluation.
 
-The later AI Intake Assistant will use the published catalog and form validator to
-classify intent, extract editable values and ask for missing fields before the user
-confirms submission. Policy RAG will add ingestion, embeddings, pgvector and
-permission-aware grounded citations. Neither milestone is declared complete merely
-because a chat screen exists.
+## Next milestones
 
-[Power Platform integration assets](integrations/power-platform/README.md),
-[DKSH JD alignment](docs/JD_ALIGNMENT_DKSH.md) and the
-[data quality exercise](scripts/clean_service_requests.py) support the automation
-internship track. A functioning Microsoft tenant workflow and Power BI report must
-be demonstrated separately before being claimed on a CV.
+Next is **Phase 8 attachments**: MinIO/S3-compatible object storage, authorized
+presigned uploads, completion validation and short-lived authorized download URLs.
+Then Phase 9 async notifications, Phase 10 AI intake and Phase 11 policy RAG.
 
-## Next milestones and known risks
+The Phase 7 specification mentions an SLA-at-risk filter, but the roadmap defines
+business-calendar SLA/escalation in Phase 13. M5 intentionally does not fabricate an
+SLA policy; the model reserves `due_at` for that later governed definition.
 
-Next is Phase 7 / M5 fulfillment, then Phase 8 attachments, Phase 9 notifications, followed
-by Phase 10 AI intake and Phase 11 evaluated policy RAG. Original ordered plan:
-[07_IMPLEMENTATION_PLAN.md](docs/project/07_IMPLEMENTATION_PLAN.md).
-
-Before shared production use: remediate dependency audit findings, replace default
-secrets, configure TLS/backups, move refresh transport to secure cookies, review
-session revocation/rate limiting and perform broader security/load testing. Current
-refresh logout does not revoke every already-issued access JWT. No blanket security
-or enterprise-readiness claim is made.
+Before shared production use: replace default secrets, add TLS/backups, secure-cookie
+refresh transport, stronger access-token revocation/rate limiting, dependency
+remediation, retention/redaction policy, broader security/failure/load testing and
+real tenant/provider validation. No blanket enterprise-readiness claim is made.
 
 ## Reviewer resources
 
-- [Current M4 activity and audit guide](docs/M4_ACTIVITY_AUDIT.md)
-- [M3 demo and API guide](docs/M3_WORKFLOW_APPROVALS.md)
+- [M5 service fulfillment guide](docs/M5_SERVICE_FULFILLMENT.md)
+- [M4 activity and audit](docs/M4_ACTIVITY_AUDIT.md)
+- [M3 workflow approvals](docs/M3_WORKFLOW_APPROVALS.md)
 - [Canonical progress tracker](docs/PROJECT_PROGRESS.md)
+- [Implementation status](docs/IMPLEMENTATION_STATUS.md)
 - [Security and responsible AI](docs/security-and-responsible-ai.md)
-- [Prepared UAT plan](docs/uat-test-plan.md)
-- [Earlier reviewer walkthrough](docs/reviewer-walkthrough.md) and [CV framing](docs/cv-and-interview-notes.md) describe the original prototype; prefer the M3 guide for the new flow.
+- [DKSH alignment](docs/JD_ALIGNMENT_DKSH.md)
 
 ## License
 
