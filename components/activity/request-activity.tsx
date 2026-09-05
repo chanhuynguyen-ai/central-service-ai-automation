@@ -15,7 +15,10 @@ const eventLabels: Record<string, string> = {
   APPROVAL_ASSIGNED: "Approval step assigned", APPROVAL_APPROVED: "Approval recorded",
   APPROVAL_REJECTED: "Request rejected", CHANGES_REQUESTED: "Changes requested",
   WORKFLOW_APPROVED: "Approval workflow completed", COMMENT_ADDED: "Public comment added",
-  INTERNAL_NOTE_ADDED: "Internal note added",
+  INTERNAL_NOTE_ADDED: "Internal note added", SERVICE_QUEUED: "Service work queued",
+  SERVICE_ASSIGNED: "Service work assigned", SERVICE_STARTED: "Service work started",
+  SERVICE_WAITING_REQUESTER: "Waiting for requester", SERVICE_RESUMED: "Service work resumed",
+  REQUEST_RESOLVED: "Request resolved", REQUEST_CLOSED: "Request closed",
 };
 
 export function CommentList({ items }: { items: RequestComment[] }) {
