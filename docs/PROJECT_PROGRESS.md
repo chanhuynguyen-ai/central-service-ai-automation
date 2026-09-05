@@ -1,12 +1,12 @@
 # CentralOps AI - Project Progress Tracker
 
-**Updated:** 2026-09-05  
-**Current delivery:** PR #13 - governed service fulfillment (M5)  
-**Implementation branch:** `feat/service-fulfillment`
+**Updated:** 2026-09-06  
+**Current delivery:** PR #14 - authorized request attachments (Phase 8)  
+**Implementation branch:** `feat/request-attachments`
 
 This is the canonical living tracker. Product/architecture requirements remain in
 `docs/project/`; historical delivery snapshots remain in `docs/history/`. Passing
-CI is evidence for the tested behavior, not a production-security, performance or
+CI is evidence for tested behavior, not a production-security, performance or
 regulatory certification.
 
 ## Milestones
@@ -17,99 +17,100 @@ regulatory certification.
 | Phase 3 role-aware frontend | Merged in PR #8 |
 | M2 structured catalog/drafts | Merged in PR #9/#10 |
 | M3 sequential approvals | Merged in PR #11 |
-| M4 timeline/comments/audit | Merged in PR #12 at `6e95a28` |
-| **M5 service fulfillment** | **Implemented and verified on PR #13 checkpoint `05c264b`; awaiting PR delivery cleanup/merge** |
+| M4 timeline/comments/audit | Merged in PR #12 |
+| M5 service fulfillment | Merged in PR #13 at `bbc26aa` |
+| **Phase 8 authorized attachments** | **Implemented in PR #14; final CI/PostgreSQL/Docker+MinIO verification required before merge** |
 | M6 async communication | Not implemented; Redis infrastructure only |
 | M7 AI intake | Later phase; legacy triage is not M7 |
 | M8 policy RAG | Later phase; lexical prototype is not M8 |
 
-## Delivered in M5
+## Delivered in Phase 8
 
-- Final human approval creates exactly one `ServiceWorkItem` in the same business
-  transaction; a missing deterministic owner service team fails safely instead of
-  leaving an approved orphan.
-- Owner team comes from the published request type snapshot, with a pinned TEAM_LEAD
-  resolver fallback. Later configuration edits cannot reroute historical submissions.
-- Work lifecycle: `QUEUED -> ASSIGNED -> IN_PROGRESS -> WAITING_REQUESTER ->
-  IN_PROGRESS -> RESOLVED -> CLOSED`.
-- Request aggregate remains distinct from approval: queued/assigned remain approved,
-  active service work becomes `in_progress`, resolution becomes `resolved`, and only
-  close makes the governed request `completed`.
-- Team-scoped server authorization: SERVICE_AGENT/SERVICE_LEAD require exact team
-  membership/leadership; ADMIN is cross-team. APPROVER alone cannot manage service work.
-- Agents can self-claim; team leads/admin may assign an eligible member through the
-  action API. Post-assignment transitions require the assignee or lead/admin.
-- Compare-and-swap versioning plus row locking prevents stale/double actions.
-  PostgreSQL CI races independent claims and verifies one winner/one 409.
-- Service lifecycle audit/domain events are safe, append to the M4 timeline and do
-  not copy resolution text into audit metadata.
-- New authenticated `/service-queue` UI supports Team queue, Unassigned, Assigned to
-  me, status filtering, claim/start/wait/resume/resolve/close and resolution summary.
-- Requester-visible timeline now shows queue, assignment, start, wait, resume,
-  resolution and closure.
+- Added `request_attachments` metadata with explicit PENDING/READY/QUARANTINED/DELETED
+  state and requester-visible/internal visibility.
+- File bytes stay in MinIO/S3-compatible storage; PostgreSQL stores only governed
+  metadata and object references.
+- Upload reservation requires authenticated request scope and a supported MIME type,
+  normalized safe filename and configured size limit.
+- Browser uploads directly with a short-lived presigned POST. The S3 policy binds
+  content type and maximum length to the reserved file rather than relying only on
+  client-side checks.
+- Upload completion locks the metadata row and verifies stored object size/content type
+  using server-side S3 HEAD before marking the attachment READY.
+- Client-provided checksum claims are not treated as verified integrity metadata;
+  trusted server/worker hashing is deferred.
+- Every download request is re-authorized before issuing a short-lived presigned GET.
+- Structured drafts remain owner-only; submitted request access reuses governed
+  requester/approval/manager/admin/auditor scope and adds active routed service-team
+  scope for fulfillment files.
+- INTERNAL attachments are hidden from the requester and limited to service-team,
+  ADMIN/AUDITOR read scope; internal upload is limited to service staff/admin.
+- Attachment readiness is audited and appears as a safe request timeline event without
+  copying filenames or file contents into audit metadata.
+- Request detail now supports direct upload/list/download for requester-visible files.
+- MinIO receives a health gate in Compose and separate API-internal/browser-public S3
+  endpoints so generated URLs work across the Docker/host boundary.
 
-## Verification checkpoint
+## Database and storage
 
-Application checkpoint: `05c264ba88ce8087865c930013d84bb1b3ffabb5`.
+Phase 8 revision: `h9d3f6c8e045`, following M5 `g8c2e5b7d934`.
 
-| Gate | Evidence |
-|---|---|
-| CI backend + frontend | **#65 / 33971368204 SUCCESS** - Ruff, clean SQLite migration, **134 backend tests**, **83% total statement coverage**, TypeScript, ESLint, production build and frontend tests |
-| PostgreSQL workflow gate | **#38 / 33971368207 SUCCESS** - clean PostgreSQL migration, M3 workflow races, M4 activity guards, M5 final queueing and concurrent claim probe |
-| Production Docker + Chromium | **#41 / 33971368246 SUCCESS** - M2/M3/M4 regressions plus M5 queued -> claim -> start -> wait -> resume -> resolve -> close and requester completed timeline |
+The migration adds `request_attachments`, indexes and lifecycle/visibility checks.
+Downgrade refuses when READY/QUARANTINED metadata exists because binary objects may
+still live in external object storage.
 
-Normal API fixtures use SQLite for speed. Dedicated CI probes use PostgreSQL with
-independent connections for the concurrency behavior that SQLite cannot prove.
-Browser smoke uses disposable PostgreSQL and production Docker images with synthetic
-demo data. No load benchmark or external AI/provider quality claim is made.
+Local object-storage defaults:
 
-## Database and migration
+```text
+API -> MinIO: http://minio:9000
+Browser -> MinIO: http://localhost:9000
+Bucket: centralops
+Presign expiry: 300 seconds
+Application max attachment size: 10 MiB
+```
 
-M5 revision: `g8c2e5b7d934`, following M4 `f7b1d4a6c823`.
+## Primary Phase 8 files
 
-The migration adds `service_work_items`, indexes and a unique request-to-work-item
-constraint. It backfills already-approved requests only when the pinned workflow
-snapshot provides a deterministic active service team. Downgrade refuses to discard
-progressed/assigned work. Back up persistent development data before schema changes;
-do not use volume deletion as a migration or rollback method.
+- Domain model: `backend/app/models/attachments.py`
+- Schemas: `backend/app/schemas/attachments.py`
+- Authorization/lifecycle: `backend/app/services/attachments.py`
+- S3 adapter: `backend/app/services/storage.py`
+- API: `backend/app/api/routes/attachments.py`
+- Migration: `backend/alembic/versions/h9d3f6c8e045_add_request_attachments.py`
+- Backend tests: `backend/tests/test_attachments.py`
+- Frontend API/UI: `lib/attachment-api.ts`, `components/attachments/request-attachments.tsx`
+- Browser gate: `scripts/m8_browser_smoke.py`
+- Reviewer/run guide: `docs/M8_REQUEST_ATTACHMENTS.md`
 
-## Primary M5 files
+## Verification gates
 
-- Domain model: `backend/app/models/fulfillment.py`
-- Schemas: `backend/app/schemas/fulfillment.py`
-- Service/authorization/state machine: `backend/app/services/fulfillment.py`
-- API: `backend/app/api/routes/fulfillment.py`
-- Final-approval integration: `backend/app/api/routes/workflows.py`
-- Migration: `backend/alembic/versions/g8c2e5b7d934_add_service_fulfillment.py`
-- PostgreSQL race probe: `backend/app/db/verify_fulfillment_concurrency.py`
-- Backend tests: `backend/tests/test_fulfillment.py`, `test_fulfillment_api.py`
-- Frontend: `app/service-queue/page.tsx`, `components/fulfillment/service-queue.tsx`, `lib/fulfillment-api.ts`
-- Browser gate: `scripts/m5_browser_smoke.py`
-- Run/reviewer guide: `docs/M5_SERVICE_FULFILLMENT.md`
+PR #14 stays draft until the final branch HEAD passes all of these:
+
+1. Ruff + clean SQLite migration + full backend regressions.
+2. TypeScript + ESLint + production frontend build + executable frontend regressions.
+3. Clean PostgreSQL migration plus existing M3/M4/M5 concurrency/integrity gates.
+4. Production Docker Compose with PostgreSQL/Redis/MinIO plus real Chromium regression
+   through M2/M3/M4/M5 and a Phase 8 upload -> completion -> list -> authorized download
+   whose downloaded bytes match the uploaded synthetic fixture.
+
+No completion/merge claim is made until these HEAD-specific gates succeed.
 
 ## Explicit limits
 
-The queue does not claim an SLA-at-risk calculation yet. The roadmap has a dedicated
-Phase 13 for business-calendar SLA and escalation rules; M5 reserves `due_at` rather
-than inventing a misleading SLA policy. The recruiter/demo UI focuses on agent
-self-claim; lead-to-agent assignment exists in the server-side action API, while a
-staff directory/picker belongs in later operations/admin UX.
+Phase 8 does **not** provide malware scanning, antivirus certification, retention/legal
+hold, object versioning, trusted server-computed SHA-256, large multipart upload,
+preview conversion, backup validation or production S3 policy review. These boundaries
+are intentional and documented rather than implied.
 
-M5 does not add attachments, notification delivery, AI intake or pgvector RAG.
-Existing prototype auth still uses browser session storage/JSON refresh transport;
-secure-cookie transport, immediate access-JWT revocation, rate limiting, dependency
-remediation, TLS/backups, broader load/failure/security review and real Microsoft
-tenant validation remain before shared production use.
+Existing auth hardening items also remain: secure-cookie transport, immediate access
+JWT revocation, rate limiting, dependency remediation, TLS/backups and broader
+failure/load/security review.
 
 ## Next
 
-**Phase 8 - Attachments:** authorized MinIO/S3-compatible object storage, presigned
-upload completion and server-authorized short-lived download URLs. Malware scanning
-remains a later security hook. Do not jump to AI before the governed standard request
-path remains reliable through file handling and asynchronous communication.
+After Phase 8 is verified and merged, implement **Phase 9 / M6 asynchronous
+communication**: Redis-backed worker, in-app notifications, email adapter and retry
+behavior that cannot repeat core business actions.
 
-## Run
-
-After PR #13 is merged, pull `main`, rebuild Compose, check Alembic in the API
-container and use [M5_SERVICE_FULFILLMENT.md](M5_SERVICE_FULFILLMENT.md). Existing
-M2/M3/M4 guides remain valid for catalog, approvals and activity/audit behavior.
+Do not jump to AI intake/RAG before this governed standard request path remains
+reliable through file handling and asynchronous communication.
