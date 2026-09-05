@@ -6,6 +6,7 @@ from app.db.session import get_db
 from app.models.models import ServiceRequest, User
 from app.schemas.schemas import AssistantAnswer, AssistantQuestion, CitationOut
 from app.services.llm import ai_service
+from app.services.permissions import can_view_request
 
 router = APIRouter()
 
@@ -19,11 +20,11 @@ def chat(
     request_context = ""
     if payload.request_reference:
         request = (
-            db.query(ServiceRequest)
+            db.query(ServiceRequest).filter(ServiceRequest.status != "draft")
             .filter(ServiceRequest.reference == payload.request_reference)
             .first()
         )
-        if not request or (user.role == "employee" and request.requester_id != user.id):
+        if not request or not can_view_request(user, request):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found")
         request_context = (
             f"Reference: {request.reference}; category: {request.category}; priority: "

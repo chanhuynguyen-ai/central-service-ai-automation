@@ -22,7 +22,7 @@ router = APIRouter()
 
 
 def get_visible_request(db: Session, request_id: int, user: User) -> ServiceRequest:
-    query = db.query(ServiceRequest).options(joinedload(ServiceRequest.requester))
+    query = db.query(ServiceRequest).filter(ServiceRequest.status != "draft").options(joinedload(ServiceRequest.requester))
     request = query.filter(ServiceRequest.id == request_id).first()
 
     if not request or not can_view_request(user, request):
@@ -41,15 +41,12 @@ def list_requests(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> RequestList:
-    query = db.query(ServiceRequest).options(joinedload(ServiceRequest.requester))
+    query = db.query(ServiceRequest).filter(ServiceRequest.status != "draft").options(joinedload(ServiceRequest.requester))
 
     if not can_view_all_requests(user):
         if can_view_direct_reports(user):
             query = query.join(User, ServiceRequest.requester_id == User.id).filter(
-                or_(
-                    ServiceRequest.requester_id == user.id,
-                    User.manager_id == user.id,
-                )
+                or_(ServiceRequest.requester_id == user.id, User.manager_id == user.id)
             )
         else:
             query = query.filter(ServiceRequest.requester_id == user.id)
@@ -63,7 +60,6 @@ def list_requests(
         query = query.filter(
             or_(ServiceRequest.reference.ilike(term), ServiceRequest.title.ilike(term))
         )
-
     total = query.count()
     items = query.order_by(ServiceRequest.submitted_at.desc()).offset(offset).limit(limit).all()
     return RequestList(items=[RequestOut.model_validate(item) for item in items], total=total)
@@ -99,32 +95,20 @@ def decide_request(
     approver: User = Depends(require_roles("APPROVER", "ADMIN")),
 ) -> ServiceRequest:
     request = get_visible_request(db, request_id, approver)
-
     if not can_decide_approval(approver, request):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Insufficient permissions to decide this request",
         )
-
     if request.status != "pending_approval":
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Request is not pending approval",
-        )
-
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Request is not pending approval")
     request.status = "in_progress" if payload.decision == "approve" else "rejected"
-    approval = Approval(
-        request_id=request.id,
-        approver_id=approver.id,
-        decision=payload.decision,
-        comment=payload.comment,
-    )
-    db.add(approval)
+    db.add(Approval(
+        request_id=request.id, approver_id=approver.id,
+        decision=payload.decision, comment=payload.comment,
+    ))
     add_audit_event(
-        db,
-        "approval_decided",
-        request=request,
-        actor=approver,
+        db, "approval_decided", request=request, actor=approver,
         details={"decision": payload.decision, "comment": payload.comment},
     )
     db.commit()
@@ -140,23 +124,17 @@ def update_status(
     operator: User = Depends(require_roles("APPROVER", "SERVICE_LEAD", "ADMIN")),
 ) -> ServiceRequest:
     request = get_visible_request(db, request_id, operator)
-
     if not can_change_request_status(operator, request):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Insufficient permissions to change request status",
         )
-
     previous = request.status
     request.status = payload.status
     if payload.status == "completed":
         request.completed_at = datetime.now(UTC)
-
     add_audit_event(
-        db,
-        "status_changed",
-        request=request,
-        actor=operator,
+        db, "status_changed", request=request, actor=operator,
         details={"from": previous, "to": payload.status, "comment": payload.comment},
     )
     db.commit()
