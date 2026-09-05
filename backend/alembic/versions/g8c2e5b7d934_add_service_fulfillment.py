@@ -60,31 +60,86 @@ def upgrade():
     op.create_index("ix_service_work_items_assignee_status", "service_work_items", ["assignee_user_id", "status"])
 
     bind = op.get_bind()
-    requests = sa.table("service_requests", sa.column("id", sa.Integer), sa.column("status", sa.String),
-                        sa.column("approval_state", sa.String), sa.column("fulfillment_state", sa.String),
-                        sa.column("approved_at", sa.DateTime(timezone=True)), sa.column("workflow_attempt", sa.Integer))
-    instances = sa.table("workflow_instances", sa.column("request_id", sa.Integer), sa.column("attempt", sa.Integer),
-                         sa.column("snapshot", sa.JSON))
-    work = sa.table("service_work_items", sa.column("request_id", sa.Integer), sa.column("service_team_id", sa.Integer),
-                    sa.column("status", sa.String), sa.column("version", sa.Integer),
-                    sa.column("queued_at", sa.DateTime(timezone=True)), sa.column("created_at", sa.DateTime(timezone=True)),
-                    sa.column("updated_at", sa.DateTime(timezone=True)))
-    rows = bind.execute(sa.select(requests.c.id, requests.c.approved_at, instances.c.snapshot).join(
-        instances, sa.and_(instances.c.request_id == requests.c.id, instances.c.attempt == requests.c.workflow_attempt)
-    ).where(requests.c.status == "approved", requests.c.approval_state == "approved")).mappings().all()
+    requests = sa.table(
+        "service_requests",
+        sa.column("id", sa.Integer),
+        sa.column("status", sa.String),
+        sa.column("approval_state", sa.String),
+        sa.column("fulfillment_state", sa.String),
+        sa.column("approved_at", sa.DateTime(timezone=True)),
+        sa.column("workflow_attempt", sa.Integer),
+    )
+    instances = sa.table(
+        "workflow_instances",
+        sa.column("request_id", sa.Integer),
+        sa.column("attempt", sa.Integer),
+        sa.column("snapshot", sa.JSON),
+    )
+    teams = sa.table(
+        "service_teams",
+        sa.column("id", sa.Integer),
+        sa.column("is_active", sa.Boolean),
+    )
+    work = sa.table(
+        "service_work_items",
+        sa.column("request_id", sa.Integer),
+        sa.column("service_team_id", sa.Integer),
+        sa.column("status", sa.String),
+        sa.column("version", sa.Integer),
+        sa.column("queued_at", sa.DateTime(timezone=True)),
+        sa.column("created_at", sa.DateTime(timezone=True)),
+        sa.column("updated_at", sa.DateTime(timezone=True)),
+    )
+    rows = bind.execute(
+        sa.select(requests.c.id, requests.c.approved_at, instances.c.snapshot)
+        .join(
+            instances,
+            sa.and_(
+                instances.c.request_id == requests.c.id,
+                instances.c.attempt == requests.c.workflow_attempt,
+            ),
+        )
+        .where(
+            requests.c.status == "approved",
+            requests.c.approval_state == "approved",
+        )
+    ).mappings().all()
     for row in rows:
         team_id = _team_from_snapshot(row["snapshot"])
         if team_id is None:
             continue
+        team_active = bind.execute(
+            sa.select(teams.c.is_active).where(teams.c.id == team_id)
+        ).scalar_one_or_none()
+        if team_active is not True:
+            continue
         stamp = row["approved_at"] or datetime.now(UTC)
-        bind.execute(work.insert().values(request_id=row["id"], service_team_id=team_id, status="QUEUED",
-                                          version=1, queued_at=stamp, created_at=stamp, updated_at=stamp))
-        bind.execute(requests.update().where(requests.c.id == row["id"]).values(fulfillment_state="queued"))
+        bind.execute(
+            work.insert().values(
+                request_id=row["id"],
+                service_team_id=team_id,
+                status="QUEUED",
+                version=1,
+                queued_at=stamp,
+                created_at=stamp,
+                updated_at=stamp,
+            )
+        )
+        bind.execute(
+            requests.update()
+            .where(requests.c.id == row["id"])
+            .values(fulfillment_state="queued")
+        )
 
 
 def downgrade():
     bind = op.get_bind()
-    count = bind.execute(sa.text("SELECT COUNT(*) FROM service_work_items WHERE status <> 'QUEUED' OR assignee_user_id IS NOT NULL")).scalar_one()
+    count = bind.execute(
+        sa.text(
+            "SELECT COUNT(*) FROM service_work_items "
+            "WHERE status <> 'QUEUED' OR assignee_user_id IS NOT NULL"
+        )
+    ).scalar_one()
     if count:
         raise RuntimeError("Refusing downgrade: fulfillment work has progressed and would be lost")
     op.drop_index("ix_service_work_items_assignee_status", table_name="service_work_items")
