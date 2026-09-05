@@ -15,6 +15,7 @@ from app.schemas.catalog import (
     RequestTypeVersionOut,
     RequestTypeVersionUpdate,
 )
+from app.services.audit import record_audit
 from app.services.catalog import (
     CatalogConflictError,
     CatalogNotFoundError,
@@ -65,10 +66,12 @@ def list_catalog(
 def create_type(
     payload: RequestTypeCreate,
     db: Session = Depends(get_db),
-    _: User = Depends(require_roles("ADMIN")),
+    actor: User = Depends(require_roles("ADMIN")),
 ) -> RequestTypeOut:
     try:
         request_type = create_request_type(db, payload)
+        record_audit(db, "catalog_type_changed", actor_id=actor.id, resource_type="request_type",
+                     resource_id=request_type.id, details={"request_type_id": request_type.id, "active": request_type.is_active})
         db.commit()
         db.refresh(request_type)
         return RequestTypeOut.model_validate(request_type)
@@ -82,10 +85,12 @@ def update_type(
     request_type_id: int,
     payload: RequestTypeUpdate,
     db: Session = Depends(get_db),
-    _: User = Depends(require_roles("ADMIN")),
+    actor: User = Depends(require_roles("ADMIN")),
 ) -> RequestTypeOut:
     try:
         request_type = update_request_type(db, request_type_id, payload)
+        record_audit(db, "catalog_type_changed", actor_id=actor.id, resource_type="request_type",
+                     resource_id=request_type.id, details={"request_type_id": request_type.id, "active": request_type.is_active})
         db.commit()
         db.refresh(request_type)
         return RequestTypeOut.model_validate(request_type)
@@ -107,6 +112,9 @@ def create_version(
 ) -> RequestTypeVersionOut:
     try:
         version = create_request_type_version(db, request_type_id, payload, actor)
+        record_audit(db, "catalog_version_published" if version.status == "PUBLISHED" else "catalog_version_changed",
+                     actor_id=actor.id, resource_type="request_type_version", resource_id=version.id,
+                     details={"request_type_id": request_type_id, "version_id": version.id})
         db.commit()
         db.refresh(version)
         return RequestTypeVersionOut.model_validate(version)
@@ -140,10 +148,13 @@ def update_version(
     version_number: int,
     payload: RequestTypeVersionUpdate,
     db: Session = Depends(get_db),
-    _: User = Depends(require_roles("ADMIN")),
+    actor: User = Depends(require_roles("ADMIN")),
 ) -> RequestTypeVersionOut:
     try:
         version = update_request_type_version(db, request_type_id, version_number, payload)
+        record_audit(db, "catalog_version_published" if version.status == "PUBLISHED" else "catalog_version_changed",
+                     actor_id=actor.id, resource_type="request_type_version", resource_id=version.id,
+                     details={"request_type_id": request_type_id, "version_id": version.id})
         db.commit()
         db.refresh(version)
         return RequestTypeVersionOut.model_validate(version)
@@ -160,10 +171,13 @@ def publish_version(
     request_type_id: int,
     version_number: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_roles("ADMIN")),
+    actor: User = Depends(require_roles("ADMIN")),
 ) -> RequestTypeVersionOut:
     try:
         version = publish_request_type_version(db, request_type_id, version_number)
+        record_audit(db, "catalog_version_published" if version.status == "PUBLISHED" else "catalog_version_changed",
+                     actor_id=actor.id, resource_type="request_type_version", resource_id=version.id,
+                     details={"request_type_id": request_type_id, "version_id": version.id})
         db.commit()
         db.refresh(version)
         return RequestTypeVersionOut.model_validate(version)

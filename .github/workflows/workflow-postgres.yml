@@ -47,3 +47,6 @@ jobs:
       - name: Probe concurrent workflow submissions and decisions
         run: uv run python -m app.db.verify_workflow_concurrency
         working-directory: backend
+      - name: Verify M4 comment idempotency and database append-only guards
+        run: uv run python -m app.db.verify_activity
+        working-directory: backend

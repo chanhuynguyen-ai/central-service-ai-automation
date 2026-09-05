@@ -345,6 +345,10 @@ class AuditEvent(Base):
         default=utcnow,
     )
 
+    resource_type: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
+    resource_id: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    correlation_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
     request: Mapped[ServiceRequest | None] = relationship(
         back_populates="audit_events",
     )

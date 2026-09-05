@@ -11,7 +11,7 @@ from sqlalchemy import and_, exists, func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.models.catalog import RequestType, RequestTypeVersion
-from app.models.models import AuditEvent, Role, ServiceRequest, ServiceTeam, User, UserRole
+from app.models.models import Role, ServiceRequest, ServiceTeam, User, UserRole
 from app.models.workflows import (
     ApprovalDecision,
     ApprovalTask,
@@ -23,6 +23,7 @@ from app.models.workflows import (
 )
 from app.schemas.catalog import DynamicFormSchema
 from app.schemas.workflows import DecisionInput, SubmitInput, WorkflowCreate, WorkflowVersionInput
+from app.services.audit import record_audit
 from app.services.form_validation import validate_draft
 from app.services.permissions import user_has_any_role
 
@@ -35,7 +36,9 @@ class WorkflowError(Exception):
 
 
 def _audit(db: Session, actor: User, event: str, request_id: int | None = None, **details) -> None:
-    db.add(AuditEvent(actor_id=actor.id, request_id=request_id, event_type=event, details=details))
+    record_audit(db, event, actor_id=actor.id, request_id=request_id,
+                 resource_type="request" if request_id else "workflow",
+                 details=details, domain=request_id is not None)
 
 
 def _definition(db: Session, definition_id: int) -> WorkflowDefinition:
@@ -228,9 +231,9 @@ def submit_draft(db: Session, actor: User, request_id: int, payload: SubmitInput
         db.add(step)
         runtime_steps.append(step)
     db.flush()
-    _activate(db, runtime_steps[0], actor, request.id)
     _audit(db, actor, "request_submitted", request.id, instance_id=instance.id, attempt=attempt, revision=request.draft_revision)
     _audit(db, actor, "workflow_started", request.id, instance_id=instance.id, workflow_version_id=workflow_version.id)
+    _activate(db, runtime_steps[0], actor, request.id)
     return request
 
 

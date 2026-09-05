@@ -53,6 +53,7 @@ def get_current_user(
     user = db.query(User).filter(User.email == email, User.is_active.is_(True)).first()
     if not user:
         raise credentials_error
+    db.info["audit_actor_id"] = user.id
     return user
 
 

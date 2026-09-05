@@ -11,6 +11,7 @@ from app.schemas.schemas import (
     TokenOut,
     UserOut,
 )
+from app.services.audit import record_audit
 from app.services.auth_sessions import (
     RefreshSessionError,
     create_refresh_session,
@@ -45,12 +46,15 @@ def _token_response(user: User, refresh_token: str) -> TokenOut:
 def login(payload: LoginInput, db: Session = Depends(get_db)) -> TokenOut:
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not user.is_active or not verify_password(payload.password, user.hashed_password):
+        record_audit(db, "auth_login_failed", resource_type="auth")
+        db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
         )
 
     _, refresh_token = create_refresh_session(db, user)
+    record_audit(db, "auth_login", actor_id=user.id, resource_type="user", resource_id=user.id)
     db.commit()
     return _token_response(user, refresh_token)
 
@@ -61,18 +65,22 @@ def refresh(payload: RefreshTokenInput, db: Session = Depends(get_db)) -> TokenO
         user, refresh_token = rotate_refresh_session(db, payload.refresh_token)
     except RefreshSessionError as exc:
         db.rollback()
+        record_audit(db, "auth_refresh_failed", resource_type="auth")
+        db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired refresh token",
         ) from exc
 
+    record_audit(db, "auth_refresh", actor_id=user.id, resource_type="user", resource_id=user.id)
     db.commit()
     return _token_response(user, refresh_token)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout(payload: LogoutInput, db: Session = Depends(get_db)) -> Response:
-    revoke_refresh_session(db, payload.refresh_token)
+    if not revoke_refresh_session(db, payload.refresh_token):
+        record_audit(db, "auth_logout_noop", resource_type="auth")
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
