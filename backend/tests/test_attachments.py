@@ -37,11 +37,18 @@ def _structured_request(db, *, status="approved") -> ServiceRequest:
     return row
 
 
+def _reservation():
+    return {
+        "url": "http://storage/upload",
+        "fields": {"key": "requests/test", "Content-Type": "application/pdf"},
+    }
+
+
 def test_requester_reserves_completes_and_downloads_ready_attachment(db_session, monkeypatch):
     db = db_session
     request = _structured_request(db)
     requester = _user(db, "employee@centralops.demo")
-    monkeypatch.setattr(attachments.storage, "presign_upload", lambda **_: "http://storage/upload")
+    monkeypatch.setattr(attachments.storage, "presign_upload", lambda **_: _reservation())
     monkeypatch.setattr(
         attachments.storage,
         "object_head",
@@ -49,7 +56,7 @@ def test_requester_reserves_completes_and_downloads_ready_attachment(db_session,
     )
     monkeypatch.setattr(attachments.storage, "presign_download", lambda **_: "http://storage/download")
 
-    row, url = attachments.create_pending(
+    row, reservation = attachments.create_pending(
         db,
         requester,
         request.id,
@@ -59,10 +66,11 @@ def test_requester_reserves_completes_and_downloads_ready_attachment(db_session,
             size_bytes=12,
         ),
     )
-    assert url == "http://storage/upload"
+    assert reservation["url"] == "http://storage/upload"
     assert row.status == "PENDING"
-    ready = attachments.complete(db, requester, request.id, row.id, "a" * 64)
+    ready = attachments.complete(db, requester, request.id, row.id)
     assert ready.status == "READY"
+    assert ready.sha256 is None
     assert ready.storage_etag == "abc"
     assert attachments.download_url(db, requester, request.id, row.id) == "http://storage/download"
     assert db.query(AuditEvent).filter_by(event_type="attachment_ready", request_id=request.id).count() == 1
@@ -72,7 +80,7 @@ def test_completion_rejects_object_size_mismatch(db_session, monkeypatch):
     db = db_session
     request = _structured_request(db)
     requester = _user(db, "employee@centralops.demo")
-    monkeypatch.setattr(attachments.storage, "presign_upload", lambda **_: "http://storage/upload")
+    monkeypatch.setattr(attachments.storage, "presign_upload", lambda **_: _reservation())
     monkeypatch.setattr(
         attachments.storage,
         "object_head",
@@ -83,7 +91,7 @@ def test_completion_rejects_object_size_mismatch(db_session, monkeypatch):
         AttachmentPresignInput(filename="evidence.pdf", mime_type="application/pdf", size_bytes=12),
     )
     try:
-        attachments.complete(db, requester, request.id, row.id, None)
+        attachments.complete(db, requester, request.id, row.id)
         raise AssertionError("size mismatch must fail")
     except attachments.AttachmentError as exc:
         assert exc.status_code == 409
@@ -94,7 +102,7 @@ def test_requester_cannot_create_or_read_internal_attachment(db_session, monkeyp
     db = db_session
     request = _structured_request(db)
     requester = _user(db, "employee@centralops.demo")
-    monkeypatch.setattr(attachments.storage, "presign_upload", lambda **_: "http://storage/upload")
+    monkeypatch.setattr(attachments.storage, "presign_upload", lambda **_: _reservation())
 
     try:
         attachments.create_pending(
@@ -138,7 +146,7 @@ def test_draft_attachment_access_is_owner_only(db_session, monkeypatch):
     request = _structured_request(db, status="draft")
     requester = _user(db, "employee@centralops.demo")
     other = _user(db, "other.employee@centralops.demo")
-    monkeypatch.setattr(attachments.storage, "presign_upload", lambda **_: "http://storage/upload")
+    monkeypatch.setattr(attachments.storage, "presign_upload", lambda **_: _reservation())
     row, _ = attachments.create_pending(
         db, requester, request.id,
         AttachmentPresignInput(filename="draft.txt", mime_type="text/plain", size_bytes=4),
@@ -149,3 +157,13 @@ def test_draft_attachment_access_is_owner_only(db_session, monkeypatch):
         raise AssertionError("draft must remain owner-only")
     except attachments.AttachmentError as exc:
         assert exc.status_code == 404
+
+
+def test_filename_and_mime_are_normalized_before_storage():
+    payload = AttachmentPresignInput(
+        filename=" evidence.PDF ",
+        mime_type="Application/PDF; charset=binary",
+        size_bytes=4,
+    )
+    assert payload.filename == "evidence.PDF"
+    assert payload.mime_type == "application/pdf"
