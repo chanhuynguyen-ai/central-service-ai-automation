@@ -108,7 +108,7 @@ def create_pending(
     actor: User,
     request_id: int,
     payload: AttachmentPresignInput,
-) -> tuple[RequestAttachment, str]:
+) -> tuple[RequestAttachment, dict[str, object]]:
     request = _draft_or_visible_request(db, actor, request_id)
     if payload.mime_type not in settings.attachment_allowed_mime_types:
         raise AttachmentError(422, "This file type is not allowed")
@@ -130,13 +130,17 @@ def create_pending(
     db.add(row)
     db.flush()
     try:
-        upload_url = storage.presign_upload(object_key=object_key, mime_type=payload.mime_type)
+        reservation = storage.presign_upload(
+            object_key=object_key,
+            mime_type=payload.mime_type,
+            max_bytes=settings.attachment_max_bytes,
+        )
     except storage.StorageError as exc:
         raise AttachmentError(503, str(exc)) from exc
     record_audit(db, "attachment_upload_reserved", actor_id=actor.id, request_id=request.id,
                  resource_type="attachment", resource_id=row.id,
                  details={"attachment_id": row.id}, domain=False)
-    return row, upload_url
+    return row, reservation
 
 
 def complete(
@@ -144,7 +148,6 @@ def complete(
     actor: User,
     request_id: int,
     attachment_id: int,
-    sha256: str | None,
 ) -> RequestAttachment:
     request = _draft_or_visible_request(db, actor, request_id)
     row = db.query(RequestAttachment).filter_by(id=attachment_id, request_id=request.id).populate_existing().with_for_update().first()
@@ -168,7 +171,7 @@ def complete(
         raise AttachmentError(409, "Uploaded content type does not match the reserved attachment")
     row.status = "READY"
     row.ready_at = datetime.now(UTC)
-    row.sha256 = sha256.lower() if sha256 else None
+    row.sha256 = None
     row.storage_etag = str(head.get("ETag") or "").strip('"') or None
     db.flush()
     record_audit(db, "attachment_ready", actor_id=actor.id, request_id=request.id,
