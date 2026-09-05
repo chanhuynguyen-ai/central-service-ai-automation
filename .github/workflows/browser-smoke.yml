@@ -1,0 +1,49 @@
+name: Browser and PostgreSQL smoke
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  m2-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      COMPOSE_PROJECT_NAME: centralops-ci
+      LLM_PROVIDER: mock
+      CENTRALOPS_E2E: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Build production images and migrate disposable PostgreSQL
+        run: docker compose up -d --build --wait --wait-timeout 180
+      - name: Check database revision and seed example catalog
+        run: |
+          docker compose exec -T api alembic current
+          docker compose exec -T api python -m app.db.seed_catalog
+      - name: Install isolated browser test tools
+        run: uv run --no-project --with playwright==1.61.0 python -m playwright install --with-deps chromium
+      - name: Exercise authenticated catalog and draft flow in Chromium
+        run: uv run --no-project --with playwright==1.61.0 python scripts/m2_browser_smoke.py
+      - name: Probe concurrent draft saves on PostgreSQL
+        run: docker compose exec -T -e CENTRALOPS_E2E=1 api python -m app.db.verify_draft_concurrency
+      - name: Save browser screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m2-browser-screenshots
+          path: artifacts/*.png
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Container diagnostics
+        if: failure()
+        run: docker compose logs --no-color --tail=150 api web
+      - name: Remove disposable CI stack
+        if: always()
+        run: docker compose down -v

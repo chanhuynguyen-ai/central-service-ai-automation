@@ -1,11 +1,12 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity, BarChart3, Bell, Bot, CheckCircle2, ChevronRight, CircleGauge,
   Clock3, FileText, Inbox, LayoutDashboard, LogOut, Menu, Plus, Search, Send,
   Settings, ShieldCheck, Sparkles, Workflow, X,
 } from "lucide-react";
+import { CatalogWorkspace } from "@/components/catalog/catalog-workspace";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -97,6 +98,8 @@ const nav: Array<{
   roles?: string[];
 }> = [
   { label: "Overview", icon: LayoutDashboard },
+  { label: "Service catalog", icon: FileText },
+  { label: "My drafts", icon: FileText },
   { label: "Requests", icon: Inbox },
   { label: "Approvals", icon: CheckCircle2, roles: ["APPROVER", "ADMIN"] },
   { label: "AI assistant", icon: Bot },
@@ -223,6 +226,7 @@ function LoginScreen({ onAuthenticated }: { onAuthenticated: (result: TokenRespo
 
 export default function Workspace() {
   const [activeNav, setActiveNav] = useState("Overview");
+  const beforeLeaveCatalog = useRef<() => boolean>(() => true);
   const [mobileNav, setMobileNav] = useState(false);
   const [requests, setRequests] = useState<ServiceRequest[]>(apiConfigured ? [] : initialRequests);
   const [query, setQuery] = useState("");
@@ -364,6 +368,7 @@ export default function Workspace() {
   }
 
   async function handleLogout() {
+    if (!beforeLeaveCatalog.current()) return;
     if (refreshToken) {
       try {
         await logoutSession(refreshToken);
@@ -398,6 +403,8 @@ export default function Workspace() {
   );
   const pageCopy: Record<string, { title: string; description: string }> = {
     Overview: { title: "Service operations overview", description: "Monitor requests, approvals, SLA performance, and AI automation." },
+    "Service catalog": { title: "Service catalog", description: "Choose a service and create a private, structured draft." },
+    "My drafts": { title: "My drafts", description: "Continue editing your saved requests. A draft is not yet submitted for approval." },
     Requests: { title: "Service requests", description: "Search, submit, and follow AI-classified employee requests." },
     Approvals: { title: "Approval queue", description: "Review pending work while keeping business decisions human-owned." },
     "AI assistant": { title: "Policy assistant", description: "Ask grounded questions about policies, routing, and request status." },
@@ -469,7 +476,7 @@ export default function Workspace() {
               : label === "Approvals"
                 ? pendingRequestCount
                 : 0;
-            return <button key={label} onClick={() => { setActiveNav(label); setMobileNav(false); }} className={`flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition ${activeNav === label ? "bg-blue-600 text-white shadow-lg shadow-blue-950/20" : "text-slate-300 hover:bg-slate-800/80 hover:text-white"}`}><Icon className="size-[18px]" /><span className="flex-1">{label}</span>{count > 0 ? <span className={`rounded-full px-2 py-0.5 text-xs ${activeNav === label ? "bg-white/15 text-white" : "bg-slate-800 text-slate-300"}`}>{count}</span> : null}</button>;
+            return <button key={label} onClick={() => { if (!beforeLeaveCatalog.current()) return; setActiveNav(label); setMobileNav(false); }} className={`flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition ${activeNav === label ? "bg-blue-600 text-white shadow-lg shadow-blue-950/20" : "text-slate-300 hover:bg-slate-800/80 hover:text-white"}`}><Icon className="size-[18px]" /><span className="flex-1">{label}</span>{count > 0 ? <span className={`rounded-full px-2 py-0.5 text-xs ${activeNav === label ? "bg-white/15 text-white" : "bg-slate-800 text-slate-300"}`}>{count}</span> : null}</button>;
           })}
         </nav>
         <div className="mt-auto rounded-2xl border border-slate-700/60 bg-slate-900/60 p-4"><div className="flex items-center gap-2 text-sm font-medium text-white"><ShieldCheck className="size-4 text-emerald-400" />Responsible AI</div><p className="mt-2 text-xs leading-5 text-slate-400">AI recommends routing and summaries. People own approval decisions.</p></div>
@@ -485,6 +492,11 @@ export default function Workspace() {
 
         <main className="mx-auto max-w-[1500px] p-4 md:p-7">
           <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-sm font-medium text-blue-700">{today}</p><h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 md:text-[30px]">{pageCopy[activeNav].title}</h1><p className="mt-1 text-sm text-slate-500">{pageCopy[activeNav].description}</p></div>{["Overview", "Requests"].includes(activeNav) ? <NewRequestDialog onCreate={handleCreate} /> : null}</section>
+
+          {["Service catalog", "My drafts"].includes(activeNav) ? (apiConfigured && currentUser
+            ? <CatalogWorkspace key={`${currentUser.id}-${activeNav}`} mode={activeNav === "My drafts" ? "drafts" : "catalog"} request={withSessionRefresh} beforeLeave={beforeLeaveCatalog} onBrowse={() => setActiveNav("Service catalog")} />
+            : <p className="mt-6 rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">Connect the backend and sign in to use the live service catalog. Demo mode does not save drafts.</p>
+          ) : null}
 
           {workspaceError ? <div role="alert" className="mt-5 flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold">Live data could not be loaded</p><p className="mt-1 text-rose-700">{workspaceError}. No demo records are shown while the API is configured.</p></div><Button type="button" variant="outline" className="border-rose-300 bg-white text-rose-800 hover:bg-rose-100" onClick={() => setReloadNonce((value) => value + 1)}>Try again</Button></div> : null}
 

@@ -4,19 +4,8 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 FieldType = Literal[
-    "text",
-    "textarea",
-    "number",
-    "currency",
-    "date",
-    "date_range",
-    "boolean",
-    "select",
-    "multi_select",
-    "user_picker",
-    "department_picker",
-    "attachment",
-    "url",
+    "text", "textarea", "number", "currency", "date", "date_range", "boolean",
+    "select", "multi_select", "user_picker", "department_picker", "attachment", "url",
 ]
 
 
@@ -32,23 +21,34 @@ class FormField(BaseModel):
     required: bool = False
     helper_text: str | None = Field(default=None, max_length=500)
     placeholder: str | None = Field(default=None, max_length=250)
-    options: list[FormOption] = Field(default_factory=list)
+    options: list[FormOption] = Field(default_factory=list, max_length=200)
+
+    @model_validator(mode="after")
+    def validate_options(self) -> "FormField":
+        values = [option.value for option in self.options]
+        if len(values) != len(set(values)):
+            raise ValueError("Option values must be unique")
+        if self.type in {"select", "multi_select"} and not values:
+            raise ValueError("Select fields require at least one option")
+        return self
 
 
 class FormSection(BaseModel):
     title: str = Field(min_length=1, max_length=180)
     description: str | None = Field(default=None, max_length=500)
-    fields: list[FormField] = Field(min_length=1)
+    fields: list[FormField] = Field(min_length=1, max_length=100)
 
 
 class DynamicFormSchema(BaseModel):
-    sections: list[FormSection] = Field(min_length=1)
+    sections: list[FormSection] = Field(min_length=1, max_length=20)
 
     @model_validator(mode="after")
     def validate_unique_field_keys(self) -> "DynamicFormSchema":
         keys = [field.key for section in self.sections for field in section.fields]
         if len(keys) != len(set(keys)):
             raise ValueError("Form field keys must be unique across the schema")
+        if len(keys) > 100:
+            raise ValueError("A form supports at most 100 fields")
         return self
 
 
@@ -63,6 +63,13 @@ class RequestTypeUpdate(BaseModel):
     category: str | None = Field(default=None, min_length=2, max_length=80)
     owner_service_team_id: int | None = None
     is_active: bool | None = None
+
+    @model_validator(mode="after")
+    def reject_null_required_fields(self) -> "RequestTypeUpdate":
+        for name in ("category", "is_active"):
+            if name in self.model_fields_set and getattr(self, name) is None:
+                raise ValueError(f"{name} cannot be null")
+        return self
 
 
 class RequestTypeVersionCreate(BaseModel):
@@ -81,6 +88,13 @@ class RequestTypeVersionUpdate(BaseModel):
     validation_schema: dict[str, Any] | None = None
     sla_config: dict[str, Any] | None = None
     attachment_config: dict[str, Any] | None = None
+
+    @model_validator(mode="after")
+    def reject_null_required_fields(self) -> "RequestTypeVersionUpdate":
+        for name in ("title", "form_schema"):
+            if name in self.model_fields_set and getattr(self, name) is None:
+                raise ValueError(f"{name} cannot be null")
+        return self
 
 
 class RequestTypeVersionOut(BaseModel):

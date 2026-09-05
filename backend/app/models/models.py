@@ -216,7 +216,7 @@ class ServiceRequest(Base):
     reference: Mapped[str] = mapped_column(String(30), unique=True, index=True)
     title: Mapped[str] = mapped_column(String(180), index=True)
     description: Mapped[str] = mapped_column(Text)
-    category: Mapped[str] = mapped_column(String(60), index=True)
+    category: Mapped[str] = mapped_column(String(80), index=True)
     priority: Mapped[str] = mapped_column(String(20), index=True)
     status: Mapped[str] = mapped_column(
         String(30),
@@ -251,11 +251,21 @@ class ServiceRequest(Base):
         nullable=True,
     )
 
-    submitted_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=utcnow,
+    request_type_version_id: Mapped[int | None] = mapped_column(
+        ForeignKey("request_type_versions.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
     )
-    due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    form_data: Mapped[dict] = mapped_column(JSON, default=dict, server_default="{}")
+    draft_revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+
+    # Explicit None is significant for drafts: no submission/SLA clock yet.
+    submitted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True).evaluates_none(),
+        default=utcnow,
+        nullable=True,
+    )
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=utcnow,
