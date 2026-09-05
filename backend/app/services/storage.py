@@ -46,18 +46,18 @@ def ensure_bucket() -> None:
         raise StorageError("Object storage is unavailable") from exc
 
 
-def presign_upload(*, object_key: str, mime_type: str) -> str:
+def presign_upload(*, object_key: str, mime_type: str, max_bytes: int) -> dict[str, object]:
     ensure_bucket()
     try:
-        return public_client().generate_presigned_url(
-            "put_object",
-            Params={
-                "Bucket": settings.s3_bucket,
-                "Key": object_key,
-                "ContentType": mime_type,
-            },
+        return public_client().generate_presigned_post(
+            Bucket=settings.s3_bucket,
+            Key=object_key,
+            Fields={"Content-Type": mime_type},
+            Conditions=[
+                {"Content-Type": mime_type},
+                ["content-length-range", 1, max_bytes],
+            ],
             ExpiresIn=settings.s3_presign_expiry_seconds,
-            HttpMethod="PUT",
         )
     except ClientError as exc:
         raise StorageError("Could not create upload URL") from exc
@@ -73,13 +73,6 @@ def object_head(object_key: str) -> dict:
         if status == 404 or code in {"404", "NoSuchKey", "NotFound"}:
             raise StorageError("Uploaded object was not found") from exc
         raise StorageError("Could not verify uploaded object") from exc
-
-
-def delete_object(object_key: str) -> None:
-    try:
-        internal_client().delete_object(Bucket=settings.s3_bucket, Key=object_key)
-    except ClientError as exc:
-        raise StorageError("Could not delete object") from exc
 
 
 def presign_download(*, object_key: str, filename: str, mime_type: str) -> str:
