@@ -4,7 +4,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.db.session import get_db
-from app.models.models import AuditEvent, ServiceRequest, User
+from app.models.catalog import RequestType
+from app.models.fulfillment import ServiceWorkItem
+from app.models.models import AuditEvent, ServiceRequest, ServiceTeam, User
 from app.models.workflows import ApprovalDecision, ApprovalTask, WorkflowInstance
 from tests.conftest import login
 
@@ -35,6 +37,10 @@ def setup_flow(client, *, steps=None, publish=True):
     owner = login(client)
     manager = user_login(client, "manager.finance@centralops.demo")
     kind = client.post("/api/v1/catalog/request-types", headers=admin, json={"code": "M3_TEST", "category": "IT"}).json()
+    with database(client) as db:
+        team = db.query(ServiceTeam).filter_by(code="CENTRAL_SERVICE").one()
+        db.get(RequestType, kind["id"]).owner_service_team_id = team.id
+        db.commit()
     version = client.post(f"/api/v1/catalog/request-types/{kind['id']}/versions", headers=admin, json={"title": "Test form", "form_schema": FORM}).json()
     assert client.post(f"/api/v1/catalog/request-types/{kind['id']}/versions/1/publish", headers=admin).status_code == 200
     definition = client.post(BASE + "/definitions", headers=admin, json={"code": "M3_FLOW", "name": "Test workflow", "request_type_id": kind["id"]}).json()
@@ -68,7 +74,7 @@ def decide(client, headers, task, decision="approve", comment=""):
                        json={"version": task["version"], "decision": decision, "comment": comment})
 
 
-def test_two_step_approval_is_sequential_and_not_fulfillment(client: TestClient):
+def test_two_step_approval_is_sequential_and_queues_fulfillment(client: TestClient):
     _, owner, manager, _, draft = setup_flow(client)
     first = submit(client, owner, draft)
     assert first.status_code == 200, first.text
@@ -83,9 +89,11 @@ def test_two_step_approval_is_sequential_and_not_fulfillment(client: TestClient)
     assert final.status_code == 200, final.text
     assert final.json()["status"] == "approved"
     assert final.json()["approval_state"] == "approved"
-    assert final.json()["fulfillment_state"] == "not_queued"
+    assert final.json()["fulfillment_state"] == "queued"
     assert final.json()["approved_at"]
     assert client.get(BASE + "/approval-tasks", headers=manager).json()["total"] == 0
+    with database(client) as db:
+        assert db.query(ServiceWorkItem).filter_by(request_id=draft["id"]).count() == 1
 
 
 def test_duplicate_submission_and_decision_are_conflicts(client):
@@ -212,7 +220,6 @@ def test_workflow_version_snapshot_survives_publication(client):
 
 @pytest.mark.parametrize("resolver", ["ROLE", "TEAM_LEAD"])
 def test_resolvers_use_department_or_service_lead(client, resolver):
-    from app.models.models import ServiceTeam
     with database(client) as db:
         team_id = db.query(ServiceTeam).filter_by(code="CENTRAL_SERVICE").one().id
     config = {"role_code": "MANAGER"} if resolver == "ROLE" else {"service_team_id": team_id}
@@ -241,6 +248,7 @@ def test_all_mode_requires_each_assigned_approver(client):
     result = decide(client, other, tasks[1])
     assert result.status_code == 200
     assert result.json()["status"] == "approved"
+    assert result.json()["fulfillment_state"] == "queued"
 
 
 def test_structured_workflow_cannot_be_bypassed_by_legacy_api(client):
@@ -272,6 +280,7 @@ def test_strict_configuration_and_mutation_permissions(client):
 def test_seed_workflows_is_repeatable(client):
     from app.db.seed_catalog import seed_catalog
     from app.db.seed_workflows import seed_workflows
+
     with database(client) as db:
         seed_catalog(db)
         assert seed_workflows(db) == 3
