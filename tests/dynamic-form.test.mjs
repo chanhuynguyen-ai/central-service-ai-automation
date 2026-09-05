@@ -12,9 +12,9 @@ const source = readFileSync(new URL("../components/catalog/dynamic-form.tsx", im
 const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-const module = { exports: {} };
-new Function("require", "module", "exports", compiled)(require, module, module.exports);
-const { DynamicForm } = module.exports;
+const compiledModule = { exports: {} };
+new Function("require", "module", "exports", compiled)(require, compiledModule, compiledModule.exports);
+const { DynamicForm } = compiledModule.exports;
 
 function render(kind, value, extra = {}) {
   const changes = [];

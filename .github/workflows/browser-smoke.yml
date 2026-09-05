@@ -31,6 +31,8 @@ jobs:
         run: uv run --no-project --with playwright==1.61.0 python -m playwright install --with-deps chromium
       - name: Exercise authenticated catalog and draft flow in Chromium
         run: uv run --no-project --with playwright==1.61.0 python scripts/m2_browser_smoke.py
+      - name: Probe concurrent draft saves on PostgreSQL
+        run: docker compose exec -T -e CENTRALOPS_E2E=1 api python -m app.db.verify_draft_concurrency
       - name: Save browser screenshots
         if: always()
         uses: actions/upload-artifact@v4

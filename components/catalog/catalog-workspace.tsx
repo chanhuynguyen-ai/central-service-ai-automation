@@ -14,7 +14,7 @@ const primary = "rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white
 const input = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200";
 const emptyValues = (): DraftValues => ({ title: "", description: "", form_data: {} });
 
-export function CatalogWorkspace({ mode, request, beforeLeave, onBrowse }: {
+export function CatalogWorkspace({ mode, request, beforeLeave: beforeLeaveRef, onBrowse }: {
   mode: "catalog" | "drafts"; request: AuthenticatedRequest;
   beforeLeave: MutableRefObject<() => boolean>; onBrowse: () => void;
 }) {
@@ -52,19 +52,19 @@ export function CatalogWorkspace({ mode, request, beforeLeave, onBrowse }: {
   }, [reload]);
 
   useEffect(() => {
-    beforeLeave.current = () => !dirty || window.confirm("You have unsaved changes. Leave without saving?");
+    beforeLeaveRef.current = () => !dirty || window.confirm("You have unsaved changes. Leave without saving?");
     const warn = (event: BeforeUnloadEvent) => { if (dirty) { event.preventDefault(); event.returnValue = ""; } };
     window.addEventListener("beforeunload", warn);
-    return () => { beforeLeave.current = () => true; window.removeEventListener("beforeunload", warn); };
-  }, [dirty, beforeLeave]);
+    return () => { beforeLeaveRef.current = () => true; window.removeEventListener("beforeunload", warn); };
+  }, [dirty, beforeLeaveRef]);
 
   function resetEditor() {
-    if (!beforeLeave.current()) return;
+    if (!beforeLeaveRef.current()) return;
     setVersion(null); setDraft(null); setValues(emptyValues()); setIssues([]);
     setDirty(false); setConflict(false); setError(""); setNotice("");
   }
   function choose(entry: CatalogEntry) {
-    if (!beforeLeave.current()) return;
+    if (!beforeLeaveRef.current()) return;
     setVersion(entry.published_version); setDraft(null);
     setValues({ title: entry.published_version.title, description: "", form_data: {} });
     setIssues([]); setError(""); setNotice(""); setConflict(false); setDirty(false);
@@ -75,7 +75,7 @@ export function CatalogWorkspace({ mode, request, beforeLeave, onBrowse }: {
     setIssues(result.validation.errors); setDirty(false); setConflict(false);
   }
   async function openDraft(id: number) {
-    if (!beforeLeave.current()) return;
+    if (!beforeLeaveRef.current()) return;
     setBusy(true); setError(""); setNotice("");
     try {
       const result = await requestRef.current((token) => getDraft(token, id));
@@ -139,7 +139,7 @@ export function CatalogWorkspace({ mode, request, beforeLeave, onBrowse }: {
       <label className="grid gap-2 text-sm font-medium" htmlFor="draft-description">Business context *<textarea id="draft-description" className={input} disabled={busy} rows={3} maxLength={5000} value={values.description} onChange={(event) => { setValues((current) => ({ ...current, description: event.target.value })); setDirty(true); setNotice(""); }} /></label>
       {issues.filter((issue) => issue.field === "description" || issue.field === "form_data").map((issue) => <p key={issue.field} className="text-sm text-rose-700">{issue.message}</p>)}
       <DynamicForm schema={version.form_schema} values={values.form_data} lookups={lookups} errors={issues} disabled={busy} onChange={changeField} />
-      <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white py-4"><div className="text-xs text-slate-500"><p>{dirty ? "Unsaved changes" : draft ? `Saved ${new Date(draft.updated_at).toLocaleString()}` : "Only saved drafts are persisted"}</p><p className="mt-1">Saving does not submit, start an SLA, or call an AI model.</p></div><button type="submit" className={primary} disabled={busy || conflict}>{busy ? "Saving..." : "Save draft"}</button></div>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white py-4"><div className="text-xs text-slate-500"><p>{dirty ? "Unsaved changes" : draft ? `Saved ${new Date(draft.updated_at).toLocaleString()}` : "Only saved drafts are persisted"}</p><p className="mt-1">Saving does not submit, start an SLA, or call an AI model.</p></div><button type="submit" className={primary} disabled={busy || conflict}>{busy ? "Saving..." : "Save draft"}</button></div>
       {draft ? <p className="break-all font-mono text-xs text-slate-500">{draft.reference}</p> : null}
     </form> : <>
       <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-slate-600">{mode === "catalog" ? "Choose a published service. Its form version is preserved in your draft." : `Your private drafts (${drafts.length} of ${total}). Other users cannot open or edit them.`}</p><button type="button" disabled={loading || busy} className={button} onClick={() => { setLoading(true); setError(""); setReload((value) => value + 1); }}>Refresh</button></div>
