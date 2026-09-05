@@ -1,0 +1,53 @@
+name: Workflow PostgreSQL verification
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  workflow-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: centralops_workflow_test
+          POSTGRES_USER: centralops
+          POSTGRES_PASSWORD: ci-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U centralops -d centralops_workflow_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://centralops:ci-only-password@localhost:5432/centralops_workflow_test
+      LLM_PROVIDER: mock
+      CENTRALOPS_E2E: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Export exact tracked source for reproducible verification
+        run: git archive --format=zip --output=verified-source.zip HEAD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workflow-verification-source
+          path: verified-source.zip
+          retention-days: 1
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.12'
+          enable-cache: true
+      - run: uv sync --frozen --extra dev
+        working-directory: backend
+      - name: Apply migrations to clean PostgreSQL
+        run: uv run alembic upgrade head && uv run alembic current
+        working-directory: backend
+      - name: Backend regression tests
+        run: uv run pytest --cov=app --cov-report=term-missing
+        working-directory: backend
