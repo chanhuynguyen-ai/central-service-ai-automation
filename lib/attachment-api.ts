@@ -18,8 +18,8 @@ export type RequestAttachment = {
 type PresignResult = {
   attachment_id: number;
   upload_url: string;
-  upload_method: "PUT";
-  required_headers: Record<string, string>;
+  upload_method: "POST";
+  form_fields: Record<string, string>;
   expires_in_seconds: number;
 };
 
@@ -42,10 +42,12 @@ export const reserveAttachment = (
 }, token);
 
 export async function uploadReservedFile(reservation: PresignResult, file: File) {
+  const form = new FormData();
+  for (const [key, value] of Object.entries(reservation.form_fields)) form.append(key, value);
+  form.append("file", file);
   const response = await fetch(reservation.upload_url, {
     method: reservation.upload_method,
-    headers: reservation.required_headers,
-    body: file,
+    body: form,
   });
   if (!response.ok) throw new Error("Object storage rejected the upload.");
 }
