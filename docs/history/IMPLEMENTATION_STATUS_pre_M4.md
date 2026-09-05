@@ -1,11 +1,11 @@
 # Implementation Status
 
-**Updated:** 2026-09-05 - M4 activity and audit implementation.
+**Updated:** 2026-09-05 - M3 workflow implementation.
 
 The source-of-truth design remains in `docs/project/`. This map distinguishes a
 working portfolio slice from production readiness. For exact verification runs
 and merge checkpoints use [PROJECT_PROGRESS.md](PROJECT_PROGRESS.md). The previous
-pre-M4 map is retained in [history](history/IMPLEMENTATION_STATUS_pre_M4.md).
+pre-M3 audit is retained in [history](history/IMPLEMENTATION_STATUS_pre_M3.md).
 
 | Area | Current implementation | Boundary / next work |
 |---|---|---|
@@ -14,7 +14,7 @@ pre-M4 map is retained in [history](history/IMPLEMENTATION_STATUS_pre_M4.md).
 | Phase 3 | Real authenticated workspace, role-aware navigation, explicit loading/error states | Incremental component extraction; fuller session race hardening |
 | Phase 4 / M2 | Published catalog, versioned typed forms, private drafts, deterministic validation, revision conflicts | Attachments and advanced conditional/validation rules are explicitly unsupported |
 | Phase 5 / M3 | Sequential ALL workflows, USER/MANAGER/ROLE/TEAM_LEAD resolvers, atomic submit, exact-assignee inbox, approve/reject/request changes, retained attempts | No ANY/conditional routing/delegation; unavailable assignees fail safely for administrator attention |
-| Phase 6 / M4 | Append-only timeline, scoped public/internal comments, audit workspace, auth/configuration/ORM-role audit, safe historical backfill | Retention/redaction/WORM storage and DB-owner tamper resistance are not implemented |
+| Phase 6 / M4 | Workflow attempt/decision history and transactional audit events exist | Full domain-event timeline, comments/internal-note visibility and audit UI are next |
 | Phase 7 / M5 | Final approval explicitly records fulfillment as not_queued | Service work item, queue, assignment, wait/resolve/close are not implemented |
 | Phase 8 | MinIO infrastructure only; attachment input unavailable | Authorized upload/download and file lifecycle |
 | Phase 9 / M6 | Redis infrastructure only | Worker, asynchronous notifications and delivery retries |
@@ -28,12 +28,10 @@ pre-M4 map is retained in [history](history/IMPLEMENTATION_STATUS_pre_M4.md).
 ## Interpretation
 
 A passing migration does not prove browser UX, and a green CI does not certify
-production security. M2, M3 and M4 use real persistence and human decisions; they do
+production security. M2 and M3 use real persistence and human decisions; they do
 not claim completed fulfillment or measured AI model quality. The legacy simple
 request and integration endpoints cannot bypass the new structured workflow.
 
-The immediate next vertical slice is **Phase 7 / M5: authorized service
-fulfillment**, including work items, team queues and resolution/closure.
+The immediate next vertical slice is **Phase 6: full request timeline, comments
+and protected internal notes**, then the Phase 7 fulfillment work item/queue.
 The documented AI phases remain after a reliable standard request path.
-
-For the activity API, permissions matrix and demo, see [M4_ACTIVITY_AUDIT.md](M4_ACTIVITY_AUDIT.md).

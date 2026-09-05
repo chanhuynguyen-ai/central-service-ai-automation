@@ -20,10 +20,14 @@ def permissions(db: Session, actor: User, request: ServiceRequest) -> ActivityPe
     admin = user_has_any_role(actor, "ADMIN")
     auditor_only = user_has_any_role(actor, "AUDITOR") and not user_has_any_role(actor, "ADMIN", "APPROVER", "MANAGER")
     reviewer = assigned and user_has_any_role(actor, "APPROVER", "ADMIN")
+    requester = db.get(User, request.requester_id)
+    direct_manager = bool(requester and requester.manager_id == actor.id and user_has_any_role(actor, "MANAGER"))
     # Being the requester always excludes internal content, even with another role.
     read_internal = not owner and (admin or reviewer or user_has_any_role(actor, "AUDITOR"))
     return ActivityPermissions(
-        can_comment=not auditor_only,
+        # AUDITOR grants organization-wide reads, never a broader writing scope
+        # merely by being combined with an unrelated manager/approver role.
+        can_comment=not auditor_only and (owner or admin or reviewer or direct_manager),
         can_read_internal=read_internal,
         can_write_internal=not owner and (admin or reviewer) and not auditor_only,
     )

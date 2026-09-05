@@ -1,121 +1,110 @@
 # CentralOps AI - Project Progress Tracker
 
-**Updated:** 2026-09-05  
-**Current delivery:** PR #11 - sequential workflow and assigned approvals (M3)  
-**Implementation branch:** `feat/sequential-workflow-approvals`
+**Updated:** 2026-09-05
+**Current delivery:** PR #12 - request activity, discussions and audit (M4)
+**Implementation branch:** `feat/request-timeline-audit`
 
-This is the canonical living tracker. Original project specifications are in
-`docs/project/`; prior status snapshots are preserved in `docs/history/`.
-A feature is not production-ready merely because tests are green. PR #11 records
-its exact final merge state and current-head CI evidence.
+This is the canonical living tracker. Original requirements remain in
+`docs/project/`; earlier status snapshots are preserved in `docs/history/`.
+PR #12 records its exact final tested HEAD and merge state. Passing a feature gate
+is not a production-security or regulatory-compliance certification.
 
 ## Milestones
 
-| Milestone | State / evidence |
+| Milestone | Verified state |
 |---|---|
-| M1 secure API foundation | Prototype foundation implemented; auth/roles/session PRs merged |
-| Phase 3 authenticated frontend | Merged in PR #8 |
-| M2 structured private drafts | PR #9 catalog and PR #10 form/draft workspace merged; real browser/PostgreSQL gates passed |
-| M3 deterministic assigned approvals | Implemented and verified in PR #11; evidence below |
-| M4 full timeline/comments/audit UI | Next vertical slice; current attempts/decision history is not the full phase |
-| M5 fulfillment | Not implemented; approved requests explicitly remain not_queued |
+| M1 secure API foundation | Auth/session/RBAC prototype merged; production transport/rate-limit hardening remains |
+| Phase 3 role-aware frontend | Merged in PR #8 |
+| M2 private structured drafts | PR #9/#10 merged; browser/PostgreSQL regression gates retained |
+| M3 sequential assigned approvals | PR #11 merged at f9ef76f; user reports local stack checks passed |
+| M4 activity/comments/audit | Implemented in PR #12; verified gates below, final merge state in PR |
+| M5 fulfillment | Next; Approved still records fulfillment as not_queued |
 | M6 async communication | Worker/notification delivery not implemented |
-| M7/M8 AI intake and policy RAG | Later phases; legacy AI prototype is not equivalent to these milestones |
+| M7/M8 AI intake and RAG | Later phases; legacy triage/lexical retrieval are not these milestones |
 
-## Delivered in M3
+## Delivered in M4
 
-- Seven definition/version/step/attempt/task/decision tables. One default workflow
-  per catalog type, one published version, ordered ALL steps only.
-- Four deterministic resolvers: explicit user, requester manager, normalized role
-  in requester department, and service-team lead. No LLM routing authority.
-- Atomic saved-draft submission: ownership, revision, form validation, active
-  published workflow, all approvers, immutable submitted snapshot, first tasks
-  and audit records commit together. Invalid routing leaves the draft intact.
-- Exact-assignee decisions and pending/history inbox. Unassigned administrators
-  cannot decide; wrong/self/deactivated actors and stale decisions are rejected.
-- Rejection is terminal. Request changes requires a reason; private edits are
-  owner-only, and resubmission starts a new attempt with the whole chain restarted.
-  Earlier submitted values, configurations and decisions remain available.
-- Request-row locking plus task/request compare-and-swap and unique constraints
-  protect duplicate actions and concurrent different tasks in an ALL step.
-- Final approval is separate from fulfillment. No fake work item or notification.
-- Legacy API/status/integration/AI-context surfaces cannot bypass the structured
-  workflow. Legacy metrics are labeled separately rather than presented as M3 KPIs.
-- Real frontend submit confirmation, saved-complete guard, assigned decision form,
-  authorized submission detail and visible attempt history.
-- Explicit idempotent demo workflow seed: Manager -> Central Service Lead. These
-  are synthetic routing rules, not claimed employer policies.
+- Separate append-only domain events and comment records over the existing
+  service request; enriched existing audit_events rather than a duplicate audit store.
+- Public discussion and restricted internal notes with server-side authorization,
+  owner exclusion for internal content even for an ADMIN requester, and read-only
+  auditor behavior. Mixed roles do not promote auditor read scope into write scope.
+- Authorization filtering precedes keyset pagination. No internal bodies/events
+  are sent to the requester. Never-submitted drafts and legacy requests stay outside
+  the activity endpoints; M3 submitted snapshots remain unchanged.
+- Idempotent comment keys, shared request-row locks and unique constraints.
+  Comment, audit and domain event are atomic; failed writes cannot leave ghost events.
+- Transactional workflow events, safe auth/catalog/workflow audit metadata and
+  ORM role-assignment audit. Privileged audit reads are themselves recorded.
+- Database and ORM history-mutation guards. PostgreSQL UPDATE/DELETE/TRUNCATE
+  and SQLite UPDATE/DELETE protection are explicitly tested.
+- Recognized prior M3 audits are imported with original times/source IDs and a
+  visible backfill label. No invented history or copied private draft content.
+- Request detail includes discussion, timeline, audience warnings, explicit internal
+  confirmation, read-only permissions, HTML-safe plain text and cursor loading.
+- ADMIN/AUDITOR Audit log workspace with filters, metadata-only rows and request
+  correlation IDs. Attachments remain an honest unavailable placeholder.
 
-## Database
+## Verification checkpoints
 
-Latest revision: `e6a0c3f5b712` after M2's `d5f9b2e4a601`.
-Existing prototype requests and saved drafts are preserved. Downgrade refuses
-when workflow definitions exist. Back up persistent development data before
-schema changes; never delete volumes just to make an old branch run.
+On `7fb78671d1f5074867f183d59f8178d94b49c5cf`:
 
-## Verification
-
-The backend suite on the M3 code has **107 passing tests and 85% total coverage**
-(CI run 30, `33947511678`). This replaces the older 36-test/90% baseline; it is a
-larger suite and denominator, not a claim that all new paths are covered.
-Local execution also passed 107 tests. PostgreSQL workflow run 3 (`33947511680`)
-passed clean migrations and independent-connection concurrency probes.
-
-The browser gate initially exposed an inaccessible exact label on the approval
-selector. Commit `10f7011` separates the labels from their controls rather than
-weakening the browser test. On that head all three workflows are **SUCCESS**:
-
-| Gate | Verified run |
+| Gate | Recorded evidence |
 |---|---|
-| CI / backend + frontend | #31, `33947838899` |
-| Clean PostgreSQL migration + workflow concurrency | #4, `33947838796` |
-| Production Docker + real Chromium M2/M3 flow | #7, `33947838771` |
+| CI backend + frontend | #36 / 33967447121 SUCCESS: 123 backend tests, 85% total coverage; TypeScript, ESLint, build and executable frontend tests |
+| Chromium/Docker M2-M4 | #12 / 33967447127 SUCCESS: public persistence, escaped HTML, internal body/event isolation, account switch and auditor UI |
+| PostgreSQL M4 gate | #9 / 33967447118 SUCCESS: clean migration, M3 races, idempotent comment and DB append-only probes |
 
-The Chromium script covers employee submit, generic approver empty inbox, manager
-request-changes, private revision/resubmit, manager approval, service-lead final
-approval and both preserved snapshots. The first browser failure was corrected,
-not ignored. Artifacts are synthetic screenshots, not token-bearing traces.
-PR #11 records the final current-head checks and merge commit separately.
+Screenshots from the full M4 browser run were downloaded and visually inspected.
+The final hardening adds two focused tests for mixed-role writing scope and
+catalog/workflow configuration audit. These two tests passed locally. All gates
+must pass again on that final HEAD; PR #12 is authoritative for the final run IDs.
 
-PostgreSQL probes cover duplicate submit, duplicate intermediate/final decision,
-and two different same-step ALL task IDs deciding simultaneously. The normal
-pytest client uses SQLite; these separate probes verify actual PostgreSQL locks.
-Neither is a production load benchmark.
+Normal API fixtures use SQLite. Separate CI probes exercise real PostgreSQL row
+locks, concurrent writes and database triggers. CI uses mock AI, no production
+services or user database. No load-test or real-provider accuracy claim is made.
+
+## Database and migration
+
+Latest revision: `f7b1d4a6c823`, following M3 `e6a0c3f5b712`.
+Existing requests/drafts/decisions are preserved. Back up persistent data first.
+Downgrade refuses loss of events/comments/enriched audit. Do not use volume deletion
+or an older application branch as a rollback plan after this migration.
 
 ## Files and review guide
 
-- Models, schemas, service and router: `backend/app/{models,schemas,services,api/routes}/workflows.py`.
-- Migration: `backend/alembic/versions/e6a0c3f5b712_add_sequential_workflow.py`.
-- Seeds/probes: `backend/app/db/seed_workflows.py`, `verify_workflow_concurrency.py`.
-- Tests: `backend/tests/test_workflows.py`, `tests/workflow-api.test.mjs`, `scripts/m3_browser_smoke.py`.
-- UI/client: `components/workflows/workflow-workspace.tsx`, `lib/workflow-api.ts`; catalog/workspace integration updated.
-- Legacy privacy/bypass guards: requests, analytics, integrations, assistant routes.
-- CI: workflow-postgres and browser-smoke workflows; existing CI retained.
+- Models/schemas: `backend/app/models/activity.py`, `schemas/activity.py`, existing model exports/envelope.
+- Policy/transactions: `backend/app/services/activity.py`, `services/audit.py`, M3 workflow audit adapter.
+- API: `backend/app/api/routes/activity.py`, `audit.py`; auth/catalog hooks and actor context.
+- Migration: `backend/alembic/versions/f7b1d4a6c823_add_request_activity.py`.
+- Tests: `backend/tests/test_activity.py`, `test_activity_migration.py`, `tests/activity.test.mjs`.
+- PostgreSQL probe: `backend/app/db/verify_activity.py`.
+- UI/client: `components/activity/`, `lib/activity-api.ts`, workflow-detail and sidebar integration.
+- Browser gate: `scripts/m4_browser_smoke.py`; existing CI pipelines extended, not replaced.
 
-## Deliberate limits / risks
+## Limits that remain explicit
 
-No ANY/conditional approval, delegation, automatic reassignment, exception queue,
-background delivery, full fulfillment or file uploads. An unavailable resolved
-reviewer fails safely for administrator attention. Public admin configuration UI
-and richer SLA behavior are still pending.
+Append-only triggers are not tamper-proof against a database owner. Retention,
+redaction/erasure, archival, log growth and externally secured audit storage remain.
+Legacy stored audit JSON is filtered at read time, not retroactively purged.
+Raw SQL role changes outside the ORM are not claimed as application-audited.
+Unsent comment text is not persistent; save before navigating away.
 
-Authentication remains a prototype: refresh tokens travel in JSON/sessionStorage;
-logout revokes refresh sessions, not already-issued access JWTs. Rate limits,
-secure cookies, broader session hardening and dependency audit remediation remain.
-The existing dependency-install audit reported vulnerabilities; no blanket
-production-safety claim or force-upgrade was made during this workflow change.
-CI uses the mock LLM provider. No real-model accuracy, latency or pgvector RAG
-quality is claimed.
+Existing prototype auth uses refresh JSON/sessionStorage; logout does not revoke
+already-issued access JWTs. Rate limits, secure cookies, TLS/backups, dependency
+audit remediation, full deployment/load/security review remain necessary before
+shared production use. Real Microsoft-tenant integrations are not yet verified.
+No fulfillment, attachments, asynchronous delivery or evaluated AI/RAG is claimed.
 
 ## Next
 
-After verified PR #11 merge, continue **Phase 6 / M4: request events timeline,
-requester comments, protected internal notes and audited access**, on a new branch.
-Then add Phase 7 service fulfillment. Do not route business decisions through AI.
+Phase 7 / M5: service work item created exactly once after final approval, scoped
+team queue, assignment, start/wait/resolve/close and propagation into this timeline.
+No approval should be silently converted to completed fulfillment.
 
 ## Run
 
-Read [M3 workflow demo and API guide](M3_WORKFLOW_APPROVALS.md) and
-[M2 catalog/draft guide](M2_CATALOG_DRAFTS.md). Pull the merged main, build Compose,
-check Alembic in the API container, run catalog/workflow seeds, and demo using
-employee, direct manager and service-lead accounts. No manual code patches needed.
+Read [M4 activity/audit guide](M4_ACTIVITY_AUDIT.md), [M3 workflow guide](M3_WORKFLOW_APPROVALS.md)
+and [M2 catalog guide](M2_CATALOG_DRAFTS.md). Pull merged main, rebuild Compose,
+check Alembic in the API container, then open an existing submitted request.
+No M4 seed or local patch ZIP is needed.
