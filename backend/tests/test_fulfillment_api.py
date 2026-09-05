@@ -95,6 +95,5 @@ def test_team_lead_can_assign_eligible_agent_but_employee_cannot_act(client, db_
     assert assigned.status_code == 200, assigned.text
     assert assigned.json()["assignee_user_id"] == agent.id
 
-    with db_session as db:
-        db.expire_all()
-        assert db.get(ServiceWorkItem, item_id).assignee_user_id == agent.id
+    db_session.expire_all()
+    assert db_session.get(ServiceWorkItem, item_id).assignee_user_id == agent.id
