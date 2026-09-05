@@ -50,3 +50,6 @@ jobs:
       - name: Verify M4 comment idempotency and database append-only guards
         run: uv run python -m app.db.verify_activity
         working-directory: backend
+      - name: Verify M5 final queueing and concurrent service claims
+        run: uv run python -m app.db.verify_fulfillment_concurrency
+        working-directory: backend
