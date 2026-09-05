@@ -1,52 +1,37 @@
 # Implementation Status
 
-This file maps the current codebase to the project source-of-truth in `docs/project/`.
-It is intentionally conservative: a phase is not marked complete merely because a file or UI
-placeholder exists.
+**Updated:** 2026-09-05 - M3 workflow implementation.
 
-## Status legend
+The source-of-truth design remains in `docs/project/`. This map distinguishes a
+working portfolio slice from production readiness. For exact verification runs
+and merge checkpoints use [PROJECT_PROGRESS.md](PROJECT_PROGRESS.md). The previous
+pre-M3 audit is retained in [history](history/IMPLEMENTATION_STATUS_pre_M3.md).
 
-- **DONE** - implemented and verifiable in the repository.
-- **PARTIAL** - meaningful implementation exists, but acceptance criteria are not yet met.
-- **MISSING** - required capability is not implemented.
-- **CANNOT VERIFY** - repository contains an artifact/specification, but real-environment evidence is not available.
+| Area | Current implementation | Boundary / next work |
+|---|---|---|
+| Phases 0-1 | Docker Compose, FastAPI, SQLAlchemy/Alembic, health/readiness, demo organization | Staging, TLS, backups and production observability remain |
+| Phase 2 / M1 | Argon2, access JWT, hashed rotating refresh sessions, logout, /me, normalized roles | Cookie transport, immediate access-token revocation, rate limiting and scoped role administration remain |
+| Phase 3 | Real authenticated workspace, role-aware navigation, explicit loading/error states | Incremental component extraction; fuller session race hardening |
+| Phase 4 / M2 | Published catalog, versioned typed forms, private drafts, deterministic validation, revision conflicts | Attachments and advanced conditional/validation rules are explicitly unsupported |
+| Phase 5 / M3 | Sequential ALL workflows, USER/MANAGER/ROLE/TEAM_LEAD resolvers, atomic submit, exact-assignee inbox, approve/reject/request changes, retained attempts | No ANY/conditional routing/delegation; unavailable assignees fail safely for administrator attention |
+| Phase 6 / M4 | Workflow attempt/decision history and transactional audit events exist | Full domain-event timeline, comments/internal-note visibility and audit UI are next |
+| Phase 7 / M5 | Final approval explicitly records fulfillment as not_queued | Service work item, queue, assignment, wait/resolve/close are not implemented |
+| Phase 8 | MinIO infrastructure only; attachment input unavailable | Authorized upload/download and file lifecycle |
+| Phase 9 / M6 | Redis infrastructure only | Worker, asynchronous notifications and delivery retries |
+| Phase 10 / M7 | Legacy triage adapters/mock provider; deterministic schema validator usable by later intake | Structured classifier/extraction/clarification UI and held-out evaluation set |
+| Phase 11 / M8 | Legacy lexical article retrieval and backend citations | Document ingestion, embeddings, pgvector, permission-aware retrieval and evaluation |
+| Phase 12 | Backend catalog/workflow version publication APIs | Full admin configuration, user/role and policy editors |
+| Phase 13 | Fixed elapsed-hour approval deadline per workflow version | Business calendar, scheduled SLA checks and escalation |
+| Phase 14 | Explicitly separate legacy summary/feed and illustrative charts | Real structured approval/fulfillment trends and Power BI tenant evidence |
+| Phases 15-16 | Regression tests, migration gates, PostgreSQL races, Chromium Docker smoke | Dependency remediation, load/failure tests, deployment/security review |
 
-## Roadmap audit
+## Interpretation
 
-| Roadmap area | Status | Evidence in current repository | Main gap |
-| --- | --- | --- | --- |
-| Phase 0 - repository foundation | DONE | README, Docker, CI, docs, env example | Keep source-of-truth docs synchronized |
-| Phase 0 - PostgreSQL/Redis/MinIO infrastructure | PARTIAL | PostgreSQL Docker service; Redis/MinIO added in project-start hardening | Redis/MinIO are not consumed by the application yet |
-| Phase 1 - FastAPI foundation | DONE | FastAPI app, health/readiness, config, request ID/logging | Expand operational metrics later |
-| Phase 1 - SQLAlchemy/Alembic | PARTIAL | SQLAlchemy models; Alembic baseline added in project-start hardening | Domain schema still reflects the simplified prototype |
-| Phase 2 - authentication | DONE (MVP) | Argon2, expiring access JWT, hashed rotating refresh sessions, logout/revocation, `/auth/me` | Move refresh transport to secure HttpOnly cookies and add an SSO/OIDC adapter before production |
-| Phase 2 - RBAC | PARTIAL | Normalized roles, manager hierarchy, service roles, and centralized contextual request policies | Add scoped role assignments and approval-task-based visibility in Phase 5 |
-| Phase 3 - frontend shell | DONE on feature branch | Real login/session restoration, refresh/logout, normalized role-aware navigation, live request loading, explicit API error state | Merge `feat/role-aware-frontend`; split the monolithic workspace as domain features grow |
-| Phase 4 - request catalog/versioning | MISSING | Fixed category choices only | `request_types`, versioned schemas, publish lifecycle |
-| Phase 4 - dynamic forms/drafts | MISSING | Single hard-coded request form | JSON form schema, draft API, renderer, server validation |
-| Phase 5 - deterministic workflow engine | MISSING | Single direct approve/reject transition | Workflow definitions/versions/instances/steps and approver resolvers |
-| Phase 5 - approval inbox/actions | PARTIAL | API approve/reject and dashboard placeholder | Assigned approval tasks, inbox UI, request changes, concurrency protection |
-| Phase 6 - request timeline/audit | PARTIAL | AuditEvent persistence | Request detail timeline UI, broader admin audit log, append-only policy |
-| Phase 7 - service fulfillment | PARTIAL | Generic status update | Service work item, queue, assignee permissions, wait/resolve/close lifecycle |
-| Phase 8 - attachments | MISSING | None | MinIO/S3 presigned upload and download authorization |
-| Phase 9 - notifications/worker | MISSING | Automation run records only | Redis worker, in-app notifications, email adapter, retry/idempotency |
-| Phase 10 - AI intake | PARTIAL | AI category/priority/summary, provider fallback | Schema-aware field extraction, missing-field clarification, evaluation dataset |
-| Phase 11 - policy RAG | PARTIAL | Lexical retrieval with grounded article citation | document ingestion, chunks, pgvector/hybrid retrieval, access scope, offline eval |
-| Phase 12 - admin configuration | MISSING | None | Request type/workflow/user/policy admin editors |
-| Phase 13 - SLA/escalation | PARTIAL | Due timestamp and dashboard metric | business calendar, scheduled checker, warnings/escalation |
-| Phase 14 - analytics | PARTIAL | API KPIs, Power BI feed/spec | trend endpoints, approval/resolution duration, real Power BI evidence |
-| Phase 15 - hardening | PARTIAL | tests, CI, responsible-AI document | rate limits, refresh sessions, security tests, failure/load tests, observability |
-| Phase 16 - deployment | PARTIAL | Docker Compose and container images | staging deployment, TLS/secrets, backup/restore, OpenTelemetry |
+A passing migration does not prove browser UX, and a green CI does not certify
+production security. M2 and M3 use real persistence and human decisions; they do
+not claim completed fulfillment or measured AI model quality. The legacy simple
+request and integration endpoints cannot bypass the new structured workflow.
 
-## Current verified milestone
-
-The repository has reached **M1 — secure API foundation** and has a verified Phase 3 frontend
-implementation on its feature branch. It has not yet reached project milestone M3
-from the source-of-truth roadmap because the deterministic versioned workflow engine and
-real approval task model are not implemented.
-
-The next core vertical slice is:
-
-> Versioned request catalog + draft -> deterministic workflow instance -> manager approval task.
-
-Do not expand autonomous AI behavior before this core slice is correct.
+The immediate next vertical slice is **Phase 6: full request timeline, comments
+and protected internal notes**, then the Phase 7 fulfillment work item/queue.
+The documented AI phases remain after a reliable standard request path.

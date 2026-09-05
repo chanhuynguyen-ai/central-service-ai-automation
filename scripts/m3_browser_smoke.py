@@ -29,6 +29,12 @@ def run():
         page.on("dialog", lambda dialog: dialog.accept())
         nav = page.get_by_role("navigation", name="Primary navigation")
 
+        def capture(name):
+            # A full-page capture taken after clicking a lower-page button can
+            # place sticky chrome mid-image. Capture the real page from its top.
+            page.evaluate("window.scrollTo(0, 0)")
+            page.screenshot(path=str(ARTIFACTS / name), full_page=True)
+
         def logout():
             page.get_by_role("button", name="Sign out", exact=True).click()
             expect(page.get_by_role("heading", name="Sign in", exact=True)).to_be_visible()
@@ -62,7 +68,7 @@ def run():
             page.get_by_role("button", name="Submit for approval", exact=True).click()
             expect(page.get_by_text("Request status: pending approval", exact=True)).to_be_visible()
             expect(page.get_by_role("heading", name="Attempt 1 / pending", exact=True)).to_be_visible()
-            page.screenshot(path=str(ARTIFACTS / "m3-submitted.png"), full_page=True)
+            capture("m3-submitted.png")
             logout()
             sign_in(page, "approver@centralops.demo", "Approver123!")
             nav.get_by_role("button", name="Approvals", exact=True).click()
@@ -72,7 +78,7 @@ def run():
             open_task()
             decide("request_changes", "Please use the approved cost center before resubmitting.")
             expect(page.get_by_text("Request status: changes requested", exact=True)).to_be_visible()
-            page.screenshot(path=str(ARTIFACTS / "m3-changes-requested.png"), full_page=True)
+            capture("m3-changes-requested.png")
             logout()
             sign_in(page, "employee@centralops.demo", "Employee123!")
             nav.get_by_role("button", name="My drafts", exact=True).click()
@@ -95,7 +101,7 @@ def run():
             decide("approve", "Service owner approval recorded.")
             expect(page.get_by_text("Request status: approved", exact=True)).to_be_visible()
             expect(page.get_by_text("Approval completed. Service fulfillment has not started; it is a separate lifecycle.", exact=True)).to_be_visible()
-            page.screenshot(path=str(ARTIFACTS / "m3-approved.png"), full_page=True)
+            capture("m3-approved.png")
             logout()
             sign_in(page, "employee@centralops.demo", "Employee123!")
             nav.get_by_role("button", name="Submitted requests", exact=True).click()
@@ -106,7 +112,7 @@ def run():
             assert not errors, f"Browser runtime errors: {errors}"
             print("PASS: real browser submit -> assigned-only inbox -> request changes -> edit/resubmit -> manager approve -> service lead approve -> immutable attempt history")
         except Exception:
-            page.screenshot(path=str(ARTIFACTS / "m3-failure.png"), full_page=True)
+            capture("m3-failure.png")
             raise
         finally:
             context.close()
