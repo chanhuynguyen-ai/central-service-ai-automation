@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { ServiceQueue } from "../../components/fulfillment/service-queue";
@@ -83,14 +84,14 @@ export default function ServiceQueuePage() {
   }
 
   if (!ready) return <main className="grid min-h-screen place-items-center bg-slate-50 text-sm text-slate-500">Restoring service session...</main>;
-  if (!session || !user) return <main className="grid min-h-screen place-items-center bg-slate-50 p-6"><div className="max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center"><h1 className="text-xl font-semibold">Sign in required</h1><p className="mt-2 text-sm text-slate-600">Open the main CentralOps workspace, sign in, then return to the service queue.</p><a href="/" className="mt-4 inline-block rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white">Back to workspace</a></div></main>;
+  if (!session || !user) return <main className="grid min-h-screen place-items-center bg-slate-50 p-6"><div className="max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center"><h1 className="text-xl font-semibold">Sign in required</h1><p className="mt-2 text-sm text-slate-600">Open the main CentralOps workspace, sign in, then return to the service queue.</p><Link href="/" className="mt-4 inline-block rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white">Back to workspace</Link></div></main>;
 
   const allowed = userHasAnyRole(user, "SERVICE_AGENT", "SERVICE_LEAD", "ADMIN");
   return <main className="min-h-screen bg-slate-50">
     <header className="border-b border-slate-200 bg-white px-5 py-4">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
         <div><p className="text-xs font-semibold uppercase tracking-wide text-blue-700">CentralOps AI</p><h1 className="mt-1 text-2xl font-semibold text-slate-950">Service fulfillment</h1><p className="mt-1 text-sm text-slate-500">Approval and service work remain separate governed lifecycles.</p></div>
-        <a href="/" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700">Back to workspace</a>
+        <Link href="/" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700">Back to workspace</Link>
       </div>
     </header>
     <div className="mx-auto max-w-7xl p-5 md:p-7">
