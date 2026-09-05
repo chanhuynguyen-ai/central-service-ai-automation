@@ -23,6 +23,25 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = 30.0
     integration_api_key: str = "centralops-local-integration-key"
 
+    s3_endpoint_url: str = "http://localhost:9000"
+    s3_public_endpoint_url: str = "http://localhost:9000"
+    s3_access_key: str = "centralops"
+    s3_secret_key: str = "centralops-local-secret"
+    s3_bucket: str = "centralops"
+    s3_region: str = "us-east-1"
+    s3_presign_expiry_seconds: int = 300
+    attachment_max_bytes: int = 10 * 1024 * 1024
+    attachment_allowed_mime_types: list[str] = Field(
+        default_factory=lambda: [
+            "application/pdf",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "image/jpeg",
+            "image/png",
+            "text/plain",
+        ]
+    )
+
     cors_origins: list[str] = Field(
         default_factory=lambda: ["http://localhost:3000", "http://localhost:5173"]
     )
