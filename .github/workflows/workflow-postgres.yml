@@ -45,9 +45,23 @@ jobs:
           enable-cache: true
       - run: uv sync --frozen --extra dev
         working-directory: backend
+      - name: Export isolated development tools for offline verification
+        working-directory: backend
+        run: |
+          mkdir -p /tmp/offline-tools
+          cp -r .venv/lib/python3.12/site-packages/pwdlib /tmp/offline-tools/
+          cp .venv/bin/ruff /tmp/offline-tools/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workflow-offline-tools
+          path: /tmp/offline-tools
+          retention-days: 1
       - name: Apply migrations to clean PostgreSQL
         run: uv run alembic upgrade head && uv run alembic current
         working-directory: backend
       - name: Backend regression tests
         run: uv run pytest --cov=app --cov-report=term-missing
+        working-directory: backend
+      - name: Probe concurrent workflow submissions and decisions
+        run: uv run python -m app.db.verify_workflow_concurrency
         working-directory: backend

@@ -20,7 +20,7 @@ def chat(
     request_context = ""
     if payload.request_reference:
         request = (
-            db.query(ServiceRequest).filter(ServiceRequest.status != "draft")
+            db.query(ServiceRequest).filter(ServiceRequest.request_type_version_id.is_(None))
             .filter(ServiceRequest.reference == payload.request_reference)
             .first()
         )

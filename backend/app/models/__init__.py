@@ -13,8 +13,20 @@ from app.models.models import (
     User,
     UserRole,
 )
+from app.models.workflows import (
+    ApprovalDecision,
+    ApprovalTask,
+    WorkflowDefinition,
+    WorkflowInstance,
+    WorkflowStepDefinition,
+    WorkflowStepInstance,
+    WorkflowVersion,
+)
+
 
 __all__ = [
+    "ApprovalDecision", "ApprovalTask", "WorkflowDefinition", "WorkflowInstance",
+    "WorkflowStepDefinition", "WorkflowStepInstance", "WorkflowVersion",
     "Approval",
     "AuditEvent",
     "AuthSession",

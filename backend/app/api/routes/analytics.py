@@ -17,8 +17,8 @@ def summary(
     db: Session = Depends(get_db),
     _: User = Depends(require_roles("approver", "admin")),
 ) -> AnalyticsSummary:
-    # Drafts have no SLA clock and are private, not operational workload.
-    requests = db.query(ServiceRequest).filter(ServiceRequest.status != "draft")
+    # Legacy workload only; structured requests have a separate approval lifecycle.
+    requests = db.query(ServiceRequest).filter(ServiceRequest.request_type_version_id.is_(None))
     total = requests.count()
     completed = requests.filter(ServiceRequest.status == "completed").count()
     pending = requests.filter(ServiceRequest.status == "pending_approval").count()
@@ -32,7 +32,7 @@ def summary(
     automation_success = db.query(AutomationRun).filter(AutomationRun.status == "success").count()
     category_rows = (
         db.query(ServiceRequest.category, func.count(ServiceRequest.id))
-        .filter(ServiceRequest.status != "draft")
+        .filter(ServiceRequest.request_type_version_id.is_(None))
         .group_by(ServiceRequest.category)
         .order_by(func.count(ServiceRequest.id).desc())
         .all()

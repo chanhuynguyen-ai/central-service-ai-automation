@@ -24,7 +24,7 @@ def list_drafts(
     actor: User = Depends(get_current_user),
 ) -> DraftList:
     query = db.query(ServiceRequest).filter(
-        ServiceRequest.requester_id == actor.id, ServiceRequest.status == "draft",
+        ServiceRequest.requester_id == actor.id, ServiceRequest.status.in_(["draft", "changes_requested"]),
     )
     total = query.count()
     rows = query.order_by(ServiceRequest.updated_at.desc(), ServiceRequest.id.desc()).offset(offset).limit(limit).all()
