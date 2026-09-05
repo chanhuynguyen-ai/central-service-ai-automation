@@ -14,12 +14,26 @@ from app.models.models import AuditEvent
 INTEGER_KEYS = frozenset({
     "instance_id", "attempt", "revision", "workflow_version_id", "step_id", "task_id",
     "definition_id", "version_id", "request_type_id", "request_type_version_id",
-    "comment_id", "user_id", "role_id", "session_id",
+    "comment_id", "user_id", "role_id", "session_id", "work_item_id",
+    "service_team_id", "assignee_user_id",
+})
+WORK_STATUSES = frozenset({
+    "QUEUED", "ASSIGNED", "IN_PROGRESS", "WAITING_REQUESTER", "RESOLVED", "CLOSED",
 })
 DOMAIN_EVENTS = {
-    "request_submitted": "REQUEST_SUBMITTED", "workflow_started": "WORKFLOW_STARTED",
-    "approval_step_activated": "APPROVAL_ASSIGNED", "workflow_approved": "WORKFLOW_APPROVED",
-    "request_comment_added": "COMMENT_ADDED", "internal_note_added": "INTERNAL_NOTE_ADDED",
+    "request_submitted": "REQUEST_SUBMITTED",
+    "workflow_started": "WORKFLOW_STARTED",
+    "approval_step_activated": "APPROVAL_ASSIGNED",
+    "workflow_approved": "WORKFLOW_APPROVED",
+    "request_comment_added": "COMMENT_ADDED",
+    "internal_note_added": "INTERNAL_NOTE_ADDED",
+    "service_queued": "SERVICE_QUEUED",
+    "service_assigned": "SERVICE_ASSIGNED",
+    "service_started": "SERVICE_STARTED",
+    "service_waiting_requester": "SERVICE_WAITING_REQUESTER",
+    "service_resumed": "SERVICE_RESUMED",
+    "request_resolved": "REQUEST_RESOLVED",
+    "request_closed": "REQUEST_CLOSED",
 }
 
 
@@ -31,6 +45,8 @@ def safe_details(details: dict | None) -> dict:
         elif key in {"active", "replayed", "backfilled"} and isinstance(value, bool):
             safe[key] = value
         elif key == "decision" and isinstance(value, str) and value in {"approve", "reject", "request_changes"}:
+            safe[key] = value
+        elif key in {"from_status", "to_status"} and isinstance(value, str) and value in WORK_STATUSES:
             safe[key] = value
     return safe
 
