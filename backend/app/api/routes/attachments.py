@@ -58,11 +58,11 @@ def presign_attachment(
     actor: User = Depends(get_current_user),
 ):
     with transaction(db):
-        row, url = service.create_pending(db, actor, request_id, payload)
+        row, reservation = service.create_pending(db, actor, request_id, payload)
         return AttachmentPresignOut(
             attachment_id=row.id,
-            upload_url=url,
-            required_headers={"Content-Type": row.mime_type},
+            upload_url=str(reservation["url"]),
+            form_fields={str(key): str(value) for key, value in dict(reservation["fields"]).items()},
             expires_in_seconds=settings.s3_presign_expiry_seconds,
         )
 
@@ -74,12 +74,12 @@ def presign_attachment(
 def complete_attachment(
     request_id: int,
     attachment_id: int,
-    payload: AttachmentCompleteInput,
+    _: AttachmentCompleteInput,
     db: Session = Depends(get_db),
     actor: User = Depends(get_current_user),
 ):
     with transaction(db):
-        row = service.complete(db, actor, request_id, attachment_id, payload.sha256)
+        row = service.complete(db, actor, request_id, attachment_id)
         return AttachmentOut.model_validate(service._output(db, row))
 
 
