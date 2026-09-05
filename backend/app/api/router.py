@@ -1,9 +1,10 @@
 from fastapi import APIRouter
 
-from app.api.routes import analytics, assistant, auth, automation, integrations, requests
+from app.api.routes import analytics, assistant, auth, automation, catalog, integrations, requests
 
 api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
+api_router.include_router(catalog.router, prefix="/catalog", tags=["Request catalog"])
 api_router.include_router(requests.router, prefix="/requests", tags=["Service requests"])
 api_router.include_router(assistant.router, prefix="/assistant", tags=["AI assistant"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
