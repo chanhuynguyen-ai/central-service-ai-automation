@@ -44,7 +44,6 @@ test("work actions send only optimistic version and permitted action data", asyn
   assert.deepEqual(payload, {
     action: "resolve",
     version: 4,
-    assignee_user_id: undefined,
     note: "Laptop replaced",
   });
   assert.equal(calls[0][1].method, "POST");
