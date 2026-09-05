@@ -33,15 +33,17 @@ export type ApiServiceRequest = {
 
 export class ApiError extends Error {
   status: number;
+  detail: unknown;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, detail: unknown = null) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.detail = detail;
   }
 }
 
-async function apiRequest<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
+export async function apiRequest<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
     headers: {
@@ -52,10 +54,13 @@ async function apiRequest<T>(path: string, init: RequestInit = {}, token?: strin
   });
 
   if (!response.ok) {
-    const detail = await response.json().catch(() => ({ detail: "Request failed" })) as {
-      detail?: string;
-    };
-    throw new ApiError(response.status, detail.detail ?? `Request failed with status ${response.status}`);
+    const body = await response.json().catch(() => ({ detail: "Request failed" })) as { detail?: unknown };
+    const detail = body.detail;
+    const message = typeof detail === "string" ? detail
+      : Array.isArray(detail) ? detail.map((item: { field?: string; loc?: unknown[]; message?: string; msg?: string }) =>
+        `${item.field ?? item.loc?.join(".") ?? "Form"}: ${item.message ?? item.msg ?? "Invalid value"}`,
+      ).join("; ") : `Request failed with status ${response.status}`;
+    throw new ApiError(response.status, message, detail);
   }
 
   if (response.status === 204) return undefined as T;
