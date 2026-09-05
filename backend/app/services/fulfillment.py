@@ -21,8 +21,11 @@ class FulfillmentError(Exception):
 def _member_team_ids(db: Session, actor: User) -> list[int]:
     ids = list(
         db.scalars(
-            select(ServiceTeamMember.service_team_id).where(
+            select(ServiceTeamMember.service_team_id)
+            .join(ServiceTeam, ServiceTeam.id == ServiceTeamMember.service_team_id)
+            .where(
                 ServiceTeamMember.user_id == actor.id,
+                ServiceTeam.is_active.is_(True),
             )
         )
     )
@@ -233,12 +236,14 @@ def _eligible_assignee(db: Session, team_id: int, user_id: int) -> User:
             422,
             "Assignee must be an active service agent or service lead",
         )
+    team = db.get(ServiceTeam, team_id)
+    if not team or not team.is_active:
+        raise FulfillmentError(409, "Service team is inactive")
     member = db.query(ServiceTeamMember).filter_by(
         service_team_id=team_id,
         user_id=user_id,
     ).first()
-    team = db.get(ServiceTeam, team_id)
-    if not member and not (team and team.lead_user_id == user_id):
+    if not member and team.lead_user_id != user_id:
         raise FulfillmentError(422, "Assignee is not a member of this service team")
     return user
 
