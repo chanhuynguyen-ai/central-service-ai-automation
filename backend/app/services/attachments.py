@@ -25,20 +25,6 @@ class AttachmentError(Exception):
         super().__init__(detail)
 
 
-def _draft_or_visible_request(db: Session, actor: User, request_id: int) -> ServiceRequest:
-    request = db.get(ServiceRequest, request_id)
-    if request is None or request.request_type_version_id is None:
-        raise AttachmentError(404, "Request not found")
-    if request.status == "draft":
-        if request.requester_id != actor.id:
-            raise AttachmentError(404, "Request not found")
-        return request
-    try:
-        return visible_request(db, actor, request_id)
-    except WorkflowError as exc:
-        raise AttachmentError(exc.status_code, str(exc.detail)) from exc
-
-
 def _service_scope(db: Session, actor: User, request_id: int) -> bool:
     item = db.query(ServiceWorkItem).filter_by(request_id=request_id).first()
     if item is None:
@@ -55,6 +41,22 @@ def _service_scope(db: Session, actor: User, request_id: int) -> bool:
     return db.query(ServiceTeamMember).filter_by(
         service_team_id=item.service_team_id, user_id=actor.id,
     ).first() is not None
+
+
+def _draft_or_visible_request(db: Session, actor: User, request_id: int) -> ServiceRequest:
+    request = db.get(ServiceRequest, request_id)
+    if request is None or request.request_type_version_id is None:
+        raise AttachmentError(404, "Request not found")
+    if request.status == "draft":
+        if request.requester_id != actor.id:
+            raise AttachmentError(404, "Request not found")
+        return request
+    if _service_scope(db, actor, request.id):
+        return request
+    try:
+        return visible_request(db, actor, request_id)
+    except WorkflowError as exc:
+        raise AttachmentError(exc.status_code, str(exc.detail)) from exc
 
 
 def _can_upload_internal(db: Session, actor: User, request: ServiceRequest) -> bool:
@@ -131,16 +133,9 @@ def create_pending(
         upload_url = storage.presign_upload(object_key=object_key, mime_type=payload.mime_type)
     except storage.StorageError as exc:
         raise AttachmentError(503, str(exc)) from exc
-    record_audit(
-        db,
-        "attachment_upload_reserved",
-        actor_id=actor.id,
-        request_id=request.id,
-        resource_type="attachment",
-        resource_id=row.id,
-        details={"attachment_id": row.id},
-        domain=False,
-    )
+    record_audit(db, "attachment_upload_reserved", actor_id=actor.id, request_id=request.id,
+                 resource_type="attachment", resource_id=row.id,
+                 details={"attachment_id": row.id}, domain=False)
     return row, upload_url
 
 
@@ -152,10 +147,7 @@ def complete(
     sha256: str | None,
 ) -> RequestAttachment:
     request = _draft_or_visible_request(db, actor, request_id)
-    row = db.query(RequestAttachment).filter_by(
-        id=attachment_id,
-        request_id=request.id,
-    ).populate_existing().with_for_update().first()
+    row = db.query(RequestAttachment).filter_by(id=attachment_id, request_id=request.id).populate_existing().with_for_update().first()
     if row is None:
         raise AttachmentError(404, "Attachment not found")
     if row.uploaded_by != actor.id and not user_has_any_role(actor, "ADMIN"):
@@ -179,48 +171,25 @@ def complete(
     row.sha256 = sha256.lower() if sha256 else None
     row.storage_etag = str(head.get("ETag") or "").strip('"') or None
     db.flush()
-    record_audit(
-        db,
-        "attachment_ready",
-        actor_id=actor.id,
-        request_id=request.id,
-        resource_type="attachment",
-        resource_id=row.id,
-        details={"attachment_id": row.id},
-        domain=True,
-        internal=row.visibility == "INTERNAL",
-    )
+    record_audit(db, "attachment_ready", actor_id=actor.id, request_id=request.id,
+                 resource_type="attachment", resource_id=row.id,
+                 details={"attachment_id": row.id}, domain=True,
+                 internal=row.visibility == "INTERNAL")
     return row
 
 
-def download_url(
-    db: Session,
-    actor: User,
-    request_id: int,
-    attachment_id: int,
-) -> str:
+def download_url(db: Session, actor: User, request_id: int, attachment_id: int) -> str:
     request = _draft_or_visible_request(db, actor, request_id)
-    row = db.query(RequestAttachment).filter_by(
-        id=attachment_id, request_id=request.id, status="READY",
-    ).first()
+    row = db.query(RequestAttachment).filter_by(id=attachment_id, request_id=request.id, status="READY").first()
     if row is None or not _can_read_attachment(db, actor, request, row):
         raise AttachmentError(404, "Attachment not found")
     try:
-        url = storage.presign_download(
-            object_key=row.object_key,
-            filename=row.original_filename,
-            mime_type=row.mime_type,
-        )
+        url = storage.presign_download(object_key=row.object_key,
+                                       filename=row.original_filename,
+                                       mime_type=row.mime_type)
     except storage.StorageError as exc:
         raise AttachmentError(503, str(exc)) from exc
-    record_audit(
-        db,
-        "attachment_download_url_issued",
-        actor_id=actor.id,
-        request_id=request.id,
-        resource_type="attachment",
-        resource_id=row.id,
-        details={"attachment_id": row.id},
-        domain=False,
-    )
+    record_audit(db, "attachment_download_url_issued", actor_id=actor.id,
+                 request_id=request.id, resource_type="attachment", resource_id=row.id,
+                 details={"attachment_id": row.id}, domain=False)
     return url
