@@ -20,7 +20,7 @@ export type CatalogEntry = {
 export type FieldIssue = { field: string; code: string; message: string };
 export type DraftValidation = { valid: boolean; errors: FieldIssue[]; missing_fields: string[] };
 export type RequestDraft = {
-  id: number; reference: string; title: string; description: string; status: "draft";
+  id: number; reference: string; title: string; description: string; status: "draft" | "changes_requested";
   request_type_version_id: number; revision: number; form_data: FormData;
   updated_at: string; request_type_version: CatalogVersion; validation: DraftValidation;
 };

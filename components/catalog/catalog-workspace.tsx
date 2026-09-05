@@ -7,6 +7,7 @@ import {
   type AuthenticatedRequest, type CatalogEntry, type CatalogVersion,
   type DraftLookups, type DraftValues, type FieldIssue, type FormValue, type RequestDraft,
 } from "../../lib/catalog-api";
+import { submitDraft } from "../../lib/workflow-api";
 import { DynamicForm } from "./dynamic-form";
 
 const button = "rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50";
@@ -14,9 +15,9 @@ const primary = "rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white
 const input = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200";
 const emptyValues = (): DraftValues => ({ title: "", description: "", form_data: {} });
 
-export function CatalogWorkspace({ mode, request, beforeLeave: beforeLeaveRef, onBrowse }: {
+export function CatalogWorkspace({ mode, request, beforeLeave: beforeLeaveRef, onBrowse, onSubmitted }: {
   mode: "catalog" | "drafts"; request: AuthenticatedRequest;
-  beforeLeave: MutableRefObject<() => boolean>; onBrowse: () => void;
+  beforeLeave: MutableRefObject<() => boolean>; onBrowse: () => void; onSubmitted: (id: number) => void;
 }) {
   const requestRef = useRef(request);
   useEffect(() => { requestRef.current = request; }, [request]);
@@ -100,7 +101,7 @@ export function CatalogWorkspace({ mode, request, beforeLeave: beforeLeaveRef, o
       setDrafts((current) => [result, ...current.filter((item) => item.id !== result.id)]);
       if (!draft) setTotal((current) => current + 1);
       setNotice(result.validation.valid
-        ? "Saved privately. Required fields are complete. Workflow submission is the next phase."
+        ? "Saved privately. Required fields are complete. Review your information before submitting for approval."
         : "Draft saved. You can return later to complete the highlighted fields.");
     } catch (cause) {
       if (!alive.current) return;
@@ -110,6 +111,17 @@ export function CatalogWorkspace({ mode, request, beforeLeave: beforeLeaveRef, o
         setIssues(cause.detail.filter((issue): issue is FieldIssue =>
           typeof issue === "object" && issue !== null && "field" in issue && "message" in issue));
       }
+    } finally { if (alive.current) setBusy(false); }
+  }
+  async function submit() {
+    if (!draft || dirty || busy || conflict || !draft.validation.valid) return;
+    if (!window.confirm("Submit this saved request for human approval? Your submitted information and routing will be recorded.")) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await requestRef.current((token) => submitDraft(token, draft.id, draft.revision));
+      if (alive.current) { setDirty(false); onSubmitted(result.id); }
+    } catch (cause) {
+      if (alive.current) setError(cause instanceof Error ? cause.message : "Could not submit request.");
     } finally { if (alive.current) setBusy(false); }
   }
   async function loadMore() {
@@ -140,6 +152,7 @@ export function CatalogWorkspace({ mode, request, beforeLeave: beforeLeaveRef, o
       {issues.filter((issue) => issue.field === "description" || issue.field === "form_data").map((issue) => <p key={issue.field} className="text-sm text-rose-700">{issue.message}</p>)}
       <DynamicForm schema={version.form_schema} values={values.form_data} lookups={lookups} errors={issues} disabled={busy} onChange={changeField} />
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white py-4"><div className="text-xs text-slate-500"><p>{dirty ? "Unsaved changes" : draft ? `Saved ${new Date(draft.updated_at).toLocaleString()}` : "Only saved drafts are persisted"}</p><p className="mt-1">Saving does not submit, start an SLA, or call an AI model.</p></div><button type="submit" className={primary} disabled={busy || conflict}>{busy ? "Saving..." : "Save draft"}</button></div>
+      <div className="space-y-2 rounded-xl border border-blue-200 bg-blue-50 p-4"><p className="text-sm text-blue-900">{draft?.status === "changes_requested" ? "Resubmission restarts the full approval chain and preserves earlier decisions." : "Save all required fields before submitting. Approval is performed by named human reviewers."}</p><button type="button" className={primary} disabled={!draft || busy || dirty || conflict || !draft.validation.valid} onClick={() => void submit()}>Submit for approval</button></div>
       {draft ? <p className="break-all font-mono text-xs text-slate-500">{draft.reference}</p> : null}
     </form> : <>
       <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-slate-600">{mode === "catalog" ? "Choose a published service. Its form version is preserved in your draft." : `Your private drafts (${drafts.length} of ${total}). Other users cannot open or edit them.`}</p><button type="button" disabled={loading || busy} className={button} onClick={() => { setLoading(true); setError(""); setReload((value) => value + 1); }}>Refresh</button></div>
@@ -148,7 +161,7 @@ export function CatalogWorkspace({ mode, request, beforeLeave: beforeLeaveRef, o
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{filtered.map((entry) => <article key={entry.id} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5"><p className="text-xs font-semibold uppercase tracking-wide text-blue-700">{entry.category}</p><h2 className="mt-2 text-lg font-semibold text-slate-900">{entry.published_version.title}</h2><p className="my-3 flex-1 text-sm leading-6 text-slate-500">{entry.published_version.description}</p><div className="flex items-center justify-between gap-2"><span className="text-xs text-slate-500">Version {entry.published_version.version}</span><button type="button" className={primary} onClick={() => choose(entry)}>Start draft</button></div></article>)}</div>
         {!filtered.length ? <p className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">{catalog.length ? "No services match your search." : "No active published services yet. An administrator can publish a request type, or run the documented demo catalog seed."}</p> : null}
       </> : <>
-        <div className="grid gap-3">{drafts.map((item) => <article key={item.id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-5"><div><h2 className="font-semibold text-slate-900">{item.title || "Untitled draft"}</h2><p className="mt-1 text-xs text-slate-500">{item.request_type_version.title} · Form v{item.request_type_version.version} · Revision {item.revision}</p><p className="mt-1 text-xs text-slate-500">{item.validation.valid ? "Required fields complete" : `${item.validation.errors.length} fields or rules need attention`} · {new Date(item.updated_at).toLocaleString()}</p></div><button type="button" className={button} disabled={busy} onClick={() => void openDraft(item.id)}>Continue editing</button></article>)}</div>
+        <div className="grid gap-3">{drafts.map((item) => <article key={item.id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-5"><div><h2 className="font-semibold text-slate-900">{item.title || "Untitled draft"}</h2>{item.status === "changes_requested" ? <p className="mt-1 text-sm font-semibold text-amber-700">Changes requested</p> : null}<p className="mt-1 text-xs text-slate-500">{item.request_type_version.title} · Form v{item.request_type_version.version} · Revision {item.revision}</p><p className="mt-1 text-xs text-slate-500">{item.validation.valid ? "Required fields complete" : `${item.validation.errors.length} fields or rules need attention`} · {new Date(item.updated_at).toLocaleString()}</p></div><button type="button" className={button} disabled={busy} onClick={() => void openDraft(item.id)}>Continue editing</button></article>)}</div>
         {!drafts.length ? <div className="rounded-xl border border-slate-200 bg-white p-8 text-center"><p className="mb-4 text-sm text-slate-500">You have no saved drafts.</p><button type="button" className={primary} onClick={onBrowse}>Browse services</button></div> : null}
         {drafts.length < total ? <button type="button" className={button} disabled={busy} onClick={() => void loadMore()}>Load more drafts</button> : null}
       </>}
