@@ -28,21 +28,22 @@ export default function ServiceQueuePage() {
       const timer = window.setTimeout(() => setReady(true), 0);
       return () => window.clearTimeout(timer);
     }
+    const storedSession = stored;
     let cancelled = false;
     async function restore() {
       try {
-        const current = await getCurrentUser(stored.accessToken);
+        const current = await getCurrentUser(storedSession.accessToken);
         if (!cancelled) {
-          const next = { ...stored, user: current };
+          const next: StoredSession = { ...storedSession, user: current };
           saveSession(next);
           setSession(next);
           setUser(current);
         }
       } catch {
         try {
-          const rotated = await refreshSession(stored.refreshToken);
+          const rotated = await refreshSession(storedSession.refreshToken);
           if (!cancelled) {
-            const next = {
+            const next: StoredSession = {
               accessToken: rotated.access_token,
               refreshToken: rotated.refresh_token,
               user: rotated.user,
@@ -69,7 +70,7 @@ export default function ServiceQueuePage() {
     } catch (cause) {
       if (!(cause instanceof ApiError) || cause.status !== 401) throw cause;
       const rotated = await refreshSession(session.refreshToken);
-      const next = {
+      const next: StoredSession = {
         accessToken: rotated.access_token,
         refreshToken: rotated.refresh_token,
         user: rotated.user,
