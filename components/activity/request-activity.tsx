@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { AuthenticatedRequest } from "../../lib/catalog-api";
+import { RequestAttachments } from "../attachments/request-attachments";
 import {
   getActivityPermissions, getRequestComments, getRequestTimeline, postRequestComment,
   type ActivityPermissions, type CommentVisibility, type Page, type RequestComment, type RequestEvent,
@@ -19,6 +20,7 @@ const eventLabels: Record<string, string> = {
   SERVICE_ASSIGNED: "Service work assigned", SERVICE_STARTED: "Service work started",
   SERVICE_WAITING_REQUESTER: "Waiting for requester", SERVICE_RESUMED: "Service work resumed",
   REQUEST_RESOLVED: "Request resolved", REQUEST_CLOSED: "Request closed",
+  ATTACHMENT_ADDED: "Attachment added",
 };
 
 export function CommentList({ items }: { items: RequestComment[] }) {
@@ -122,6 +124,7 @@ export function RequestActivity({ requestId, request, revision }: {
   }
   const canPost = permissions && (visibility === "INTERNAL" ? permissions.can_write_internal : permissions.can_comment);
   return <section aria-label="Request activity" className="space-y-4">
+    <RequestAttachments requestId={requestId} request={request} />
     <article className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 md:p-7">
       <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-semibold text-slate-900">Discussion</h3>
         <button type="button" className={button} disabled={busy || moreBusy || loading} onClick={() => { setError(""); setLoading(true); setRefresh((value) => value + 1); }}>Refresh activity</button></div>
@@ -151,6 +154,5 @@ export function RequestActivity({ requestId, request, revision }: {
       {!loading && permissions && timeline.items.length === 0 ? <p className="text-sm text-slate-500">No recorded timeline events yet.</p> : null}
       {timeline.next_before_id ? <button type="button" className={button} disabled={moreBusy} onClick={() => void moreEvents()}>Older activity</button> : null}
     </article>
-    <aside aria-label="Attachments availability" className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">Attachments are not available in this release. Authorized file storage is a separate milestone.</aside>
   </section>;
 }

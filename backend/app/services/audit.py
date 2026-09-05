@@ -15,7 +15,7 @@ INTEGER_KEYS = frozenset({
     "instance_id", "attempt", "revision", "workflow_version_id", "step_id", "task_id",
     "definition_id", "version_id", "request_type_id", "request_type_version_id",
     "comment_id", "user_id", "role_id", "session_id", "work_item_id",
-    "service_team_id", "assignee_user_id",
+    "service_team_id", "assignee_user_id", "attachment_id",
 })
 WORK_STATUSES = frozenset({
     "QUEUED", "ASSIGNED", "IN_PROGRESS", "WAITING_REQUESTER", "RESOLVED", "CLOSED",
@@ -34,6 +34,7 @@ DOMAIN_EVENTS = {
     "service_resumed": "SERVICE_RESUMED",
     "request_resolved": "REQUEST_RESOLVED",
     "request_closed": "REQUEST_CLOSED",
+    "attachment_ready": "ATTACHMENT_ADDED",
 }
 
 

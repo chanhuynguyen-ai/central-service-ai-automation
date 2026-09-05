@@ -41,6 +41,8 @@ jobs:
         run: uv run --no-project --with playwright==1.61.0 python scripts/m4_browser_smoke.py
       - name: Exercise M5 service queue and fulfillment lifecycle
         run: uv run --no-project --with playwright==1.61.0 python scripts/m5_browser_smoke.py
+      - name: Exercise Phase 8 authorized MinIO attachments
+        run: uv run --no-project --with playwright==1.61.0 python scripts/m8_browser_smoke.py
       - name: Save browser screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -51,7 +53,7 @@ jobs:
           retention-days: 7
       - name: Container diagnostics
         if: failure()
-        run: docker compose logs --no-color --tail=150 api web
+        run: docker compose logs --no-color --tail=150 api web minio
       - name: Remove disposable CI stack
         if: always()
         run: docker compose down -v

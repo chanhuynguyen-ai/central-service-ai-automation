@@ -30,11 +30,17 @@ services:
     environment:
       MINIO_ROOT_USER: centralops
       MINIO_ROOT_PASSWORD: centralops-local-secret
+      MINIO_API_CORS_ALLOW_ORIGIN: http://localhost:3000
     ports:
       - "9000:9000"
       - "9001:9001"
     volumes:
       - centralops_minio:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   api:
     build:
@@ -50,12 +56,18 @@ services:
       LLM_API_KEY: ${LLM_API_KEY:-}
       REDIS_URL: redis://redis:6379/0
       S3_ENDPOINT_URL: http://minio:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:9000
+      S3_ACCESS_KEY: centralops
+      S3_SECRET_KEY: centralops-local-secret
+      S3_BUCKET: centralops
     ports:
       - "8000:8000"
     depends_on:
       database:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      minio:
         condition: service_healthy
 
   web:
