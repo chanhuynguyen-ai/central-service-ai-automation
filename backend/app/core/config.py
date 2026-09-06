@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     llm_base_url: str = "http://localhost:11434"
     llm_api_key: str = ""
     llm_timeout_seconds: float = 30.0
+    embedding_model: str = "nomic-embed-text"
+    rag_min_score: float = 0.16
     integration_api_key: str = "centralops-local-integration-key"
 
     redis_url: str = "redis://localhost:6379/0"
