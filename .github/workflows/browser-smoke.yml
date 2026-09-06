@@ -45,6 +45,8 @@ jobs:
         run: uv run --no-project --with playwright==1.61.0 python scripts/m8_browser_smoke.py
       - name: Exercise M6 in-app and asynchronous email notifications
         run: uv run --no-project --with playwright==1.61.0 python scripts/m6_browser_smoke.py
+      - name: Exercise M7 AI-assisted intake and explicit human review
+        run: uv run --no-project --with playwright==1.61.0 python scripts/m7_browser_smoke.py
       - name: Save browser screenshots
         if: always()
         uses: actions/upload-artifact@v4
