@@ -104,7 +104,7 @@ services:
       NOTIFICATION_RETRY_SECONDS: 30
       NOTIFICATION_MAX_ATTEMPTS: 5
     depends_on:
-      database:
+      api:
         condition: service_healthy
       redis:
         condition: service_healthy
