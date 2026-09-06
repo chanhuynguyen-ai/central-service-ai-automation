@@ -1,6 +1,6 @@
 # Implementation Status
 
-**Updated:** 2026-09-06 - M6 asynchronous communication implementation.
+**Updated:** 2026-09-06 - M7 AI-assisted request intake implementation.
 
 The source-of-truth design remains in `docs/project/`. This map separates verified
 portfolio functionality from production readiness. Exact checkpoints are recorded in
@@ -16,8 +16,8 @@ portfolio functionality from production readiness. Exact checkpoints are recorde
 | Phase 6 / M4 | Append-only timeline, scoped public/internal comments, privileged audit workspace and database mutation guards | Retention/redaction/WORM storage and DB-owner tamper resistance remain |
 | Phase 7 / M5 | Exactly-one fulfillment work item after final approval, team queue, assignment/start/wait/resume/resolve/close and aggregate/timeline/audit propagation | SLA-at-risk semantics deferred to Phase 13; richer staffing UX remains |
 | Phase 8 | Request attachment metadata + MinIO/S3 bytes, bounded presigned upload, authorized short-lived download, visibility and completion verification | Malware scanning, trusted checksum, retention/deletion and multipart files remain |
-| **Phase 9 / M6** | **PostgreSQL notification intent, recipient-scoped in-app notifications, Redis/Dramatiq email worker, Mailpit dev adapter, persisted retry/backoff and browser notification center** | Production email provider/idempotency, push/Teams/Slack, realtime SSE/WebSocket and preferences remain |
-| Phase 10 / M7 | Legacy triage adapters/mock provider only | Schema-aware catalog classification/extraction/clarification UI and held-out evaluation are next |
+| Phase 9 / M6 | PostgreSQL notification intent, recipient-scoped in-app notifications, Redis/Dramatiq email worker, Mailpit dev adapter, persisted retry/backoff and browser notification center | Production email provider/idempotency, push/Teams/Slack, realtime SSE/WebSocket and preferences remain |
+| **Phase 10 / M7** | **Published-catalog classification, schema-bound extraction, deterministic missing-field/clarification flow, editable AI draft UX and 30-case evaluation corpus** | Final PR verification is still required; production provider quality/cost/redaction evaluation remains |
 | Phase 11 / M8 | Legacy lexical retrieval/citations only | Ingestion, embeddings, pgvector, permission-aware RAG and evaluation |
 | Phase 12 | Backend catalog/workflow version publishing APIs | Full admin configuration/user-role-policy UI |
 | Phase 13 | Fixed prototype workflow deadline only | Business calendar, SLA-at-risk definition, scheduled checks and escalation |
@@ -28,7 +28,8 @@ portfolio functionality from production readiness. Exact checkpoints are recorde
 
 ```text
 Employee
-  -> published catalog + typed private draft
+  -> published catalog or advisory AI intake
+  -> explicit review + typed private draft
   -> optional authorized attachments
   -> deterministic sequential human approval
   -> exactly one service work item
@@ -38,16 +39,16 @@ Employee
   -> asynchronous email delivery/retry
 ```
 
-M6 keeps network delivery outside the business transaction. Approval/fulfillment code
-writes a notification intent atomically with its domain update; a separate worker later
-delivers email. Therefore delivery failure cannot cause the worker to re-run a human
-approval or service state transition.
+M7 does not create an autonomous path around the product. AI classification is limited
+to active published services, extracted values are revalidated by the normal form
+validator, missing fields come from the immutable published schema, and every suggestion
+requires employee review before persistence. Authorization and approval routing remain
+server-side deterministic decisions.
 
-Notification creation is database-idempotent by event/channel. External SMTP remains
-at-least-once around the narrow acceptance-before-SENT-record window, so exact-once
-email is not claimed. See [M6_ASYNC_NOTIFICATIONS.md](M6_ASYNC_NOTIFICATIONS.md).
+The deterministic local/mock path is used for CI and repeatable demos; external Ollama
+or OpenAI-compatible providers still require separate real-model quality, privacy,
+latency and cost evaluation before any production claim.
 
-Next vertical slice after M6: **Phase 10 / M7 schema-aware AI intake**. Classification
-and extraction must map to the published catalog/schema, remain editable, compute
-missing required fields deterministically and require employee confirmation. Policy
-RAG remains Phase 11 after that standard intake path is evaluated.
+Next vertical slice after M7 is final-green and merged: **Phase 11 / M8 policy RAG**.
+Retrieval must filter by access scope/effective policy state before chunks enter model
+context and must support explicit insufficient-evidence responses with citations.
