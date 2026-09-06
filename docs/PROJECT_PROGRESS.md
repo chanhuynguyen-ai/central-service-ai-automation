@@ -1,8 +1,8 @@
 # CentralOps AI - Project Progress Tracker
 
 **Updated:** 2026-09-06  
-**Current delivery:** PR #15 - asynchronous in-app/email notifications (M6)  
-**Implementation branch:** `feat/async-notifications`
+**Current delivery:** PR #16 - catalog-grounded AI-assisted request intake (M7)  
+**Implementation branch:** `feat/ai-intake`
 
 This is the canonical living tracker. Product/architecture requirements remain in
 `docs/project/`; historical delivery snapshots remain in `docs/history/`. Passing CI
@@ -20,85 +20,105 @@ regulatory certification.
 | M4 timeline/comments/audit | Merged in PR #12 |
 | M5 service fulfillment | Merged in PR #13 |
 | Phase 8 authorized attachments | Merged in PR #14 |
-| **M6 async communication** | **Implemented in PR #15; final application checkpoint verified green** |
-| M7 AI intake | Next after PR #15 merge; legacy triage is not M7 |
-| M8 policy RAG | Later; lexical prototype is not M8 |
+| M6 async communication | Merged in PR #15 |
+| **M7 AI intake** | **Implementation gates verified in PR #16; merge pending final docs-only HEAD checks** |
+| M8 policy RAG | Next only after M7 is merged |
 
-## Delivered in M6
+## Delivered in M7
 
-- Durable PostgreSQL notification intents written inside approval/fulfillment
-  transactions; no SMTP/Redis network call occurs inside core business transitions.
-- Paired in-app and email channels with unique event/channel idempotency keys.
-- Lifecycle notifications for approval assignment, rejection, request changes, final
-  approval, service assignment and resolution.
-- Recipient-scoped in-app list/read/read-all API and workspace bell with unread count.
-- Redis-backed Dramatiq worker plus a durable scanner for PENDING/FAILED email rows.
-- Persisted retry attempts/backoff and terminal DEAD state without replaying the
-  request/approval/fulfillment action.
-- Mailpit development SMTP catcher and browser-verifiable email delivery.
-- Worker starts after the API migration/readiness gate and has its own Dramatiq
-  process healthcheck rather than inheriting the API HTTP healthcheck.
+- Free-text intake classification constrained to active, published request types.
+- Confidence plus alternative request-type suggestions for human review.
+- Schema-bound extraction that only accepts fields from the selected published form.
+- Pydantic validation of external model output with deterministic fallback behavior.
+- Extracted values are revalidated by the same deterministic form validator used by
+  normal drafts; invalid or unsupported values never bypass the request schema.
+- Missing required fields are computed from the published form schema, not by an LLM.
+- Clarification prompts are generated deterministically from those missing fields.
+- Every AI suggestion is advisory: even high-confidence classification requires human
+  confirmation, remains editable and is not saved or submitted automatically.
+- Human selection of an alternative request type is authoritative for extraction; the
+  model cannot silently switch the selected request type.
+- Existing Ollama/OpenAI-compatible adapters remain available while CI and the local
+  demo use a deterministic `mock` fallback.
+- A 30-case evaluation corpus covers laptop replacement, software access and expense
+  reimbursement. CI enforces top-1 >= 90%, top-2 >= 95%, expected-field extraction
+  >= 90% and deterministic missing-field correctness = 100%.
+- Chromium smoke coverage exercises AI suggestion -> explicit review -> normal editable
+  draft -> explicit save without autonomous submission.
 
-## Database and runtime
+## Runtime/API surface
 
-M6 revision: `i0e4g7d9f156`, following Phase 8 `h9d3f6c8e045`.
+New endpoints:
 
-Main runtime services now include PostgreSQL, Redis, MinIO, API, notification worker,
-Mailpit and web. Mailpit is local-development infrastructure only.
+- `POST /api/v1/ai/intake/classify`
+- `POST /api/v1/ai/intake/draft`
+
+M7 adds no database migration. It reuses immutable published request-type versions and
+existing automation-run telemetry.
 
 Primary files:
 
-- `backend/app/models/notifications.py`
-- `backend/app/schemas/notifications.py`
-- `backend/app/services/notifications.py`
-- `backend/app/api/routes/notifications.py`
-- `backend/app/notification_tasks.py`
-- `backend/app/db/enqueue_pending_notifications.py`
-- `backend/alembic/versions/i0e4g7d9f156_add_notifications.py`
-- `lib/notification-api.ts`
-- `components/notifications/notification-center.tsx`
-- `scripts/m6_browser_smoke.py`
-- `docs/M6_ASYNC_NOTIFICATIONS.md`
+- `backend/app/schemas/ai_intake.py`
+- `backend/app/services/ai_intake.py`
+- `backend/app/api/routes/ai_intake.py`
+- `backend/tests/test_ai_intake.py`
+- `backend/tests/test_ai_intake_eval.py`
+- `backend/evals/ai_intake_cases.json`
+- `lib/ai-intake-api.ts`
+- `components/catalog/ai-intake-card.tsx`
+- `components/catalog/catalog-workspace.tsx`
+- `scripts/m7_browser_smoke.py`
 
-## Verification checkpoint
+## Verification status
 
-Verified application HEAD before documentation-only updates:
-`69cd80bda4b9a555dadb321db90b1aafb7fe830c`.
+Earlier PR #16 runs exposed real defects rather than being ignored:
 
-| Gate | Evidence |
-|---|---|
-| CI backend + frontend | **#90 / 34011134494 SUCCESS**: **144 backend tests**, **81% coverage**, Ruff, clean SQLite migration, TypeScript, ESLint, production build and frontend tests |
-| PostgreSQL regressions | **#63 / 34011134498 SUCCESS**: clean migration and existing workflow/activity/fulfillment concurrency/integrity probes |
-| Docker/Chromium M2-M6 | **#66 / 34011134496 SUCCESS**: production Compose, M2-M5 + Phase 8 regressions, asynchronous Mailpit email and in-app notification UI |
+- high-confidence suggestions did not always require explicit confirmation;
+- deterministic fallback omitted a clearly stated narrative `reason`;
+- the first M7 browser assertion used an ambiguous accessible-label locator even though
+  the actual `cost_center` value was correct.
 
-The first browser attempts exposed startup sequencing and inherited-healthcheck defects;
-those failures were used to harden Compose. The successful checkpoint includes the
-fixes, not the earlier failing configuration.
+The implementation was corrected and re-tested. On implementation checkpoint
+`d75108b33d47b9a554549dfac08520ccfa87709a`:
 
-Documentation commits after the application checkpoint do not change runtime code;
-PR #15 must still be green on its final HEAD before merge.
+- **CI #115 / run 34046327510: PASS** — Ruff, clean SQLite migration, full backend
+  pytest/coverage, frontend typecheck, ESLint, production build and frontend tests.
+- **Workflow PostgreSQL verification #88 / run 34046327444: PASS** — clean PostgreSQL
+  migration plus existing workflow/activity/fulfillment concurrency and integrity probes.
+- **Browser and PostgreSQL smoke #91 / run 34046327422: PASS** — production Docker
+  regression through M2-M7, including explicit human review/save for AI intake.
+- Backend suite at the immediately preceding equivalent implementation checkpoint
+  reported **149 passed, 2 warnings, 81% coverage**; the M7 evaluation test passed its
+  declared quality thresholds.
 
-## Delivery semantics and limits
+This documentation commit changes no runtime behavior. The PR still follows exact-head
+discipline: final docs-only HEAD checks must be green before merge.
 
-Core business actions are not retried by the notification worker. Notification record
-creation is database-idempotent by event/channel. External SMTP remains at-least-once:
-a crash after SMTP acceptance but before recording SENT could duplicate an email on a
-later retry. That limitation is explicit rather than presented as exactly-once email.
+## AI boundaries
 
-M6 does not include production SMTP credentials/provider validation, push/mobile,
-Teams/Slack, SSE/WebSocket realtime delivery, per-user preference controls, delivery
-analytics, or production load/failure certification.
+AI can classify, extract, suggest and explain. It still cannot:
 
-Existing hardening backlog also remains: secure-cookie refresh transport, stronger
-access-token revocation/rate limiting, dependency remediation, TLS/backups,
-retention/redaction and broader security/load testing.
+- authorize a user,
+- choose final approval authority,
+- bypass deterministic routing,
+- publish a request type,
+- persist a draft without an explicit user save,
+- submit a request without the normal human action,
+- make the final approval decision.
+
+The deterministic form schema, authorization service and workflow engine remain the
+sources of truth.
+
+## Existing hardening backlog
+
+Secure-cookie refresh transport, immediate access-token revocation/rate limiting,
+dependency remediation, TLS/backups, retention/redaction, malware scanning and broader
+security/load testing remain later hardening work.
 
 ## Next
 
-After PR #15 is final-green and merged, implement **Phase 10 / M7 AI Intake**:
-classify against the published catalog, extract schema-bound editable values, compute
-missing required fields deterministically, ask clarifying questions, expose confidence
-and always require the employee to review/confirm. AI must not authorize, route final
-approval authority, or bypass the standard request path.
+After PR #16 is merged, implement **Phase 11 / M8 Policy RAG**: pgvector-backed policy
+chunks, permission/effective-date filtering before model context, grounded answers with
+citations and explicit insufficient-evidence behavior.
 
-Policy pgvector RAG remains Phase 11 after AI intake, not a parallel shortcut.
+Do not begin RAG by bypassing access scope or treating the model as policy authority.

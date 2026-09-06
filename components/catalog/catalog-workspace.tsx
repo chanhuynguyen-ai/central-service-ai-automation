@@ -5,9 +5,10 @@ import { ApiError } from "../../lib/api";
 import {
   createDraft, getDraft, getDraftLookups, listCatalog, listDrafts, updateDraft,
   type AuthenticatedRequest, type CatalogEntry, type CatalogVersion,
-  type DraftLookups, type DraftValues, type FieldIssue, type FormValue, type RequestDraft,
+  type DraftLookups, type DraftValues, type FieldIssue, type FormData, type FormValue, type RequestDraft,
 } from "../../lib/catalog-api";
 import { submitDraft } from "../../lib/workflow-api";
+import { AIIntakeCard } from "./ai-intake-card";
 import { DynamicForm } from "./dynamic-form";
 
 const button = "rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50";
@@ -69,6 +70,17 @@ export function CatalogWorkspace({ mode, request, beforeLeave: beforeLeaveRef, o
     setVersion(entry.published_version); setDraft(null);
     setValues({ title: entry.published_version.title, description: "", form_data: {} });
     setIssues([]); setError(""); setNotice(""); setConflict(false); setDirty(false);
+  }
+  function applyAiSuggestion(entry: CatalogEntry, description: string, formData: FormData) {
+    if (!beforeLeaveRef.current()) return;
+    setVersion(entry.published_version); setDraft(null);
+    setValues({
+      title: entry.published_version.title,
+      description,
+      form_data: formData,
+    });
+    setIssues([]); setError(""); setConflict(false); setDirty(true);
+    setNotice("AI suggestion loaded into an unsaved draft. Review and edit every field before saving.");
   }
   function acceptDraft(result: RequestDraft) {
     setDraft(result); setVersion(result.request_type_version);
@@ -151,12 +163,13 @@ export function CatalogWorkspace({ mode, request, beforeLeave: beforeLeaveRef, o
       <label className="grid gap-2 text-sm font-medium" htmlFor="draft-description">Business context *<textarea id="draft-description" className={input} disabled={busy} rows={3} maxLength={5000} value={values.description} onChange={(event) => { setValues((current) => ({ ...current, description: event.target.value })); setDirty(true); setNotice(""); }} /></label>
       {issues.filter((issue) => issue.field === "description" || issue.field === "form_data").map((issue) => <p key={issue.field} className="text-sm text-rose-700">{issue.message}</p>)}
       <DynamicForm schema={version.form_schema} values={values.form_data} lookups={lookups} errors={issues} disabled={busy} onChange={changeField} />
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white py-4"><div className="text-xs text-slate-500"><p>{dirty ? "Unsaved changes" : draft ? `Saved ${new Date(draft.updated_at).toLocaleString()}` : "Only saved drafts are persisted"}</p><p className="mt-1">Saving does not submit, start an SLA, or call an AI model.</p></div><button type="submit" className={primary} disabled={busy || conflict}>{busy ? "Saving..." : "Save draft"}</button></div>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white py-4"><div className="text-xs text-slate-500"><p>{dirty ? "Unsaved changes" : draft ? `Saved ${new Date(draft.updated_at).toLocaleString()}` : "Only saved drafts are persisted"}</p><p className="mt-1">Saving does not submit or start an SLA. AI suggestions are never submitted automatically.</p></div><button type="submit" className={primary} disabled={busy || conflict}>{busy ? "Saving..." : "Save draft"}</button></div>
       <div className="space-y-2 rounded-xl border border-blue-200 bg-blue-50 p-4"><p className="text-sm text-blue-900">{draft?.status === "changes_requested" ? "Resubmission restarts the full approval chain and preserves earlier decisions." : "Save all required fields before submitting. Approval is performed by named human reviewers."}</p><button type="button" className={primary} disabled={!draft || busy || dirty || conflict || !draft.validation.valid} onClick={() => void submit()}>Submit for approval</button></div>
       {draft ? <p className="break-all font-mono text-xs text-slate-500">{draft.reference}</p> : null}
     </form> : <>
       <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-slate-600">{mode === "catalog" ? "Choose a published service. Its form version is preserved in your draft." : `Your private drafts (${drafts.length} of ${total}). Other users cannot open or edit them.`}</p><button type="button" disabled={loading || busy} className={button} onClick={() => { setLoading(true); setError(""); setReload((value) => value + 1); }}>Refresh</button></div>
       {loading ? <p role="status" className="rounded-xl border bg-white p-8 text-sm text-slate-500">Loading catalog and drafts...</p> : mode === "catalog" ? <>
+        <AIIntakeCard request={request} catalog={catalog} onApply={applyAiSuggestion} />
         <label className="grid max-w-md gap-2 text-sm font-medium" htmlFor="catalog-search">Search services<input id="catalog-search" className={input} placeholder="Laptop, software, reimbursement..." value={search} onChange={(event) => setSearch(event.target.value)} /></label>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{filtered.map((entry) => <article key={entry.id} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5"><p className="text-xs font-semibold uppercase tracking-wide text-blue-700">{entry.category}</p><h2 className="mt-2 text-lg font-semibold text-slate-900">{entry.published_version.title}</h2><p className="my-3 flex-1 text-sm leading-6 text-slate-500">{entry.published_version.description}</p><div className="flex items-center justify-between gap-2"><span className="text-xs text-slate-500">Version {entry.published_version.version}</span><button type="button" className={primary} onClick={() => choose(entry)}>Start draft</button></div></article>)}</div>
         {!filtered.length ? <p className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">{catalog.length ? "No services match your search." : "No active published services yet. An administrator can publish a request type, or run the documented demo catalog seed."}</p> : null}
