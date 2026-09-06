@@ -1,23 +1,23 @@
 # Implementation Status
 
-**Updated:** 2026-09-06 - Phase 8 authorized request attachments implementation.
+**Updated:** 2026-09-06 - M6 asynchronous communication implementation.
 
 The source-of-truth design remains in `docs/project/`. This map separates verified
-portfolio functionality from production readiness. Exact delivery checkpoints are
-recorded in [PROJECT_PROGRESS.md](PROJECT_PROGRESS.md).
+portfolio functionality from production readiness. Exact checkpoints are recorded in
+[PROJECT_PROGRESS.md](PROJECT_PROGRESS.md).
 
 | Area | Current implementation | Boundary / next work |
 |---|---|---|
-| Phases 0-1 | Docker Compose, FastAPI, SQLAlchemy/Alembic, health/readiness, demo organization | Staging, TLS, backups and production observability remain |
-| Phase 2 / M1 | Argon2, access JWT, hashed rotating refresh sessions, logout, `/me`, normalized roles | Secure-cookie transport, immediate access-token revocation, rate limiting and scoped role administration remain |
+| Phases 0-1 | Docker Compose, FastAPI, SQLAlchemy/Alembic, health/readiness and demo organization | Staging, TLS, backups and production observability remain |
+| Phase 2 / M1 | Argon2, access JWT, rotating hashed refresh sessions, logout, `/me`, normalized roles | Secure-cookie transport, immediate access-token revocation, rate limiting and scoped role administration remain |
 | Phase 3 | Authenticated workspace and role-aware navigation | Incremental UX/component extraction remains |
-| Phase 4 / M2 | Published catalog, versioned typed forms, private drafts, deterministic validation and revision conflicts | Advanced conditional form rules remain |
-| Phase 5 / M3 | Sequential ALL workflows, USER/MANAGER/ROLE/TEAM_LEAD resolvers, atomic submit, exact-assignee inbox, approve/reject/request changes and immutable attempts | No ANY/conditional routing/delegation; unavailable assignees fail safely |
+| Phase 4 / M2 | Published catalog, typed versioned forms, private drafts, deterministic validation and revision conflicts | Advanced conditional form rules remain |
+| Phase 5 / M3 | Sequential ALL workflows, deterministic resolvers, atomic submit, exact-assignee inbox, approve/reject/request-changes and immutable attempts | No ANY/conditional routing/delegation; unavailable assignees fail safely |
 | Phase 6 / M4 | Append-only timeline, scoped public/internal comments, privileged audit workspace and database mutation guards | Retention/redaction/WORM storage and DB-owner tamper resistance remain |
-| Phase 7 / M5 | Exactly-once work item after final approval, team queue, self-claim/assignment API, start/wait/resume/resolve/close, aggregate/timeline/audit propagation | SLA-at-risk semantics deferred to Phase 13; richer lead assignment/staffing UI remains |
-| **Phase 8** | **Request attachment metadata + MinIO/S3 bytes, bounded presigned POST, server-authorized short-lived GET, completion verification, requester/internal visibility, audit/timeline and request-detail upload/download UI** | Malware scanning/quarantine worker, retention/deletion, trusted checksum calculation and large multipart files remain |
-| Phase 9 / M6 | Redis infrastructure only | Worker, asynchronous notifications and delivery retries |
-| Phase 10 / M7 | Legacy triage adapters/mock provider only | Structured classifier/extraction/clarification UI and held-out evaluation |
+| Phase 7 / M5 | Exactly-one fulfillment work item after final approval, team queue, assignment/start/wait/resume/resolve/close and aggregate/timeline/audit propagation | SLA-at-risk semantics deferred to Phase 13; richer staffing UX remains |
+| Phase 8 | Request attachment metadata + MinIO/S3 bytes, bounded presigned upload, authorized short-lived download, visibility and completion verification | Malware scanning, trusted checksum, retention/deletion and multipart files remain |
+| **Phase 9 / M6** | **PostgreSQL notification intent, recipient-scoped in-app notifications, Redis/Dramatiq email worker, Mailpit dev adapter, persisted retry/backoff and browser notification center** | Production email provider/idempotency, push/Teams/Slack, realtime SSE/WebSocket and preferences remain |
+| Phase 10 / M7 | Legacy triage adapters/mock provider only | Schema-aware catalog classification/extraction/clarification UI and held-out evaluation are next |
 | Phase 11 / M8 | Legacy lexical retrieval/citations only | Ingestion, embeddings, pgvector, permission-aware RAG and evaluation |
 | Phase 12 | Backend catalog/workflow version publishing APIs | Full admin configuration/user-role-policy UI |
 | Phase 13 | Fixed prototype workflow deadline only | Business calendar, SLA-at-risk definition, scheduled checks and escalation |
@@ -29,25 +29,25 @@ recorded in [PROJECT_PROGRESS.md](PROJECT_PROGRESS.md).
 ```text
 Employee
   -> published catalog + typed private draft
-  -> optional authorized request attachments
+  -> optional authorized attachments
   -> deterministic sequential human approval
   -> exactly one service work item
-  -> authorized team queue / assignment
-  -> start / wait / resume / resolve / close
-  -> requester-visible status + timeline
-  -> audit history
+  -> authorized service fulfillment
+  -> requester-visible timeline/audit
+  -> durable in-app notification intent
+  -> asynchronous email delivery/retry
 ```
 
-Phase 8 keeps file bytes outside PostgreSQL and does not expose long-lived object
-storage credentials to the browser. The backend authorizes the request before upload
-reservation and again before every download URL. The upload policy is bounded by the
-reserved file size and MIME type; completion verifies object metadata before READY.
+M6 keeps network delivery outside the business transaction. Approval/fulfillment code
+writes a notification intent atomically with its domain update; a separate worker later
+delivers email. Therefore delivery failure cannot cause the worker to re-run a human
+approval or service state transition.
 
-This milestone deliberately does not claim malware safety. `QUARANTINED` is reserved
-for a later scanning worker and `sha256` is not populated from an untrusted client
-claim. See [M8_REQUEST_ATTACHMENTS.md](M8_REQUEST_ATTACHMENTS.md) for exact API,
-storage and security boundaries.
+Notification creation is database-idempotent by event/channel. External SMTP remains
+at-least-once around the narrow acceptance-before-SENT-record window, so exact-once
+email is not claimed. See [M6_ASYNC_NOTIFICATIONS.md](M6_ASYNC_NOTIFICATIONS.md).
 
-Next vertical slice after Phase 8: **Phase 9 / M6 background worker and asynchronous
-notifications with retry behavior**. AI intake/RAG remain after the reliable standard
-workflow path.
+Next vertical slice after M6: **Phase 10 / M7 schema-aware AI intake**. Classification
+and extraction must map to the published catalog/schema, remain editable, compute
+missing required fields deterministically and require employee confirmation. Policy
+RAG remains Phase 11 after that standard intake path is evaluated.
