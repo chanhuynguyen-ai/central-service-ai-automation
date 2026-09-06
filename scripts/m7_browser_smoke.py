@@ -55,7 +55,7 @@ def run() -> None:
             expect(page.get_by_label("Business context", exact=False)).to_have_value(request_text)
             expect(page.get_by_label("Reason for replacement", exact=False)).to_have_value(request_text)
             expect(page.get_by_label("Preferred device", exact=False)).to_have_value("windows")
-            expect(page.get_by_label("Cost center", exact=False)).to_have_value("IT-DEMO-777")
+            expect(page.locator('input[name="cost_center"]')).to_have_value("IT-DEMO-777")
             expect(page.get_by_text("AI suggestion loaded into an unsaved draft", exact=False)).to_be_visible()
 
             page.get_by_role("button", name="Save draft", exact=True).click()
