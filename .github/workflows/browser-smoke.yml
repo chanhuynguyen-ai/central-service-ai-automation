@@ -11,7 +11,7 @@ permissions:
 jobs:
   m2-m3-browser:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     env:
       COMPOSE_PROJECT_NAME: centralops-ci
       LLM_PROVIDER: mock
@@ -43,6 +43,8 @@ jobs:
         run: uv run --no-project --with playwright==1.61.0 python scripts/m5_browser_smoke.py
       - name: Exercise Phase 8 authorized MinIO attachments
         run: uv run --no-project --with playwright==1.61.0 python scripts/m8_browser_smoke.py
+      - name: Exercise M6 in-app and asynchronous email notifications
+        run: uv run --no-project --with playwright==1.61.0 python scripts/m6_browser_smoke.py
       - name: Save browser screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -53,7 +55,7 @@ jobs:
           retention-days: 7
       - name: Container diagnostics
         if: failure()
-        run: docker compose logs --no-color --tail=150 api web minio
+        run: docker compose logs --no-color --tail=180 api web worker redis mailpit minio
       - name: Remove disposable CI stack
         if: always()
         run: docker compose down -v
