@@ -16,6 +16,7 @@ from app.models.models import (
     User,
     UserRole,
 )
+from app.models.notifications import Notification
 from app.models.workflows import (
     ApprovalDecision,
     ApprovalTask,
@@ -27,7 +28,7 @@ from app.models.workflows import (
 )
 
 __all__ = [
-    "RequestComment", "RequestEvent", "RequestAttachment", "ServiceWorkItem",
+    "RequestComment", "RequestEvent", "RequestAttachment", "ServiceWorkItem", "Notification",
     "ApprovalDecision", "ApprovalTask", "WorkflowDefinition", "WorkflowInstance",
     "WorkflowStepDefinition", "WorkflowStepInstance", "WorkflowVersion",
     "Approval",

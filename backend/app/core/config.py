@@ -23,6 +23,13 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = 30.0
     integration_api_key: str = "centralops-local-integration-key"
 
+    redis_url: str = "redis://localhost:6379/0"
+    smtp_host: str = "localhost"
+    smtp_port: int = 1025
+    smtp_from: str = "centralops@local.test"
+    notification_retry_seconds: int = 30
+    notification_max_attempts: int = 5
+
     s3_endpoint_url: str = "http://localhost:9000"
     s3_public_endpoint_url: str = "http://localhost:9000"
     s3_access_key: str = "centralops"

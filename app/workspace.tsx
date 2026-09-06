@@ -2,13 +2,14 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Activity, BarChart3, Bell, Bot, CheckCircle2, ChevronRight, CircleGauge,
+  Activity, BarChart3, Bot, CheckCircle2, ChevronRight, CircleGauge,
   Clock3, FileText, Inbox, LayoutDashboard, LogOut, Menu, Plus, Search, Send,
   Settings, ShieldCheck, Sparkles, Workflow, X,
 } from "lucide-react";
 import { AuditWorkspace } from "@/components/activity/audit-workspace";
 import { WorkflowWorkspace } from "@/components/workflows/workflow-workspace";
 import { CatalogWorkspace } from "@/components/catalog/catalog-workspace";
+import { NotificationCenter } from "@/components/notifications/notification-center";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -490,7 +491,7 @@ export default function Workspace() {
         <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-slate-200/80 bg-white/90 px-4 backdrop-blur md:px-7">
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileNav(true)}><Menu /></Button>
           <div className="relative hidden max-w-md flex-1 md:block"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search requests, people, or IDs" className="h-10 border-slate-200 bg-slate-50 pl-9 shadow-none" /></div>
-          <div className="ml-auto flex items-center gap-2"><div className={`hidden items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium sm:flex ${connectionStatus.style}`}><span className={`size-1.5 rounded-full ${connectionStatus.dot}`} />{connectionStatus.label}</div><Button variant="ghost" size="icon" className="relative"><Bell /><span className="absolute right-2 top-2 size-1.5 rounded-full bg-blue-600" /><span className="sr-only">Notifications</span></Button><div className="ml-1 flex items-center gap-2 border-l border-slate-200 pl-3"><div className="grid size-9 place-items-center rounded-full bg-slate-900 text-sm font-semibold text-white">{currentUser?.full_name.split(/\s+/).map((part) => part[0]).slice(-2).join("").toUpperCase() ?? "CO"}</div><div className="hidden sm:block"><p className="text-sm font-semibold text-slate-800">{currentUser?.full_name ?? "CentralOps User"}</p><p className="text-xs text-slate-500">{currentUser?.roles.join(" · ") || currentUser?.role || "Demo workspace"}</p></div></div></div>
+          <div className="ml-auto flex items-center gap-2"><div className={`hidden items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium sm:flex ${connectionStatus.style}`}><span className={`size-1.5 rounded-full ${connectionStatus.dot}`} />{connectionStatus.label}</div><NotificationCenter request={withSessionRefresh} /><div className="ml-1 flex items-center gap-2 border-l border-slate-200 pl-3"><div className="grid size-9 place-items-center rounded-full bg-slate-900 text-sm font-semibold text-white">{currentUser?.full_name.split(/\s+/).map((part) => part[0]).slice(-2).join("").toUpperCase() ?? "CO"}</div><div className="hidden sm:block"><p className="text-sm font-semibold text-slate-800">{currentUser?.full_name ?? "CentralOps User"}</p><p className="text-xs text-slate-500">{currentUser?.roles.join(" · ") || currentUser?.role || "Demo workspace"}</p></div></div></div>
         </header>
 
         <main className="mx-auto max-w-[1500px] p-4 md:p-7">

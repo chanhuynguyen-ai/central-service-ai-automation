@@ -8,6 +8,7 @@ from app.models.fulfillment import ServiceWorkItem
 from app.models.models import ServiceRequest, ServiceTeam, ServiceTeamMember, User
 from app.schemas.fulfillment import WorkItemAction
 from app.services.audit import record_audit
+from app.services.notifications import enqueue_pair
 from app.services.permissions import user_has_any_role
 
 
@@ -361,6 +362,25 @@ def act(
             "Work item changed while acting. Reload before retrying.",
         )
     db.refresh(item)
+
+    if event == "service_assigned" and item.assignee_user_id:
+        recipient = db.get(User, item.assignee_user_id)
+        if recipient:
+            enqueue_pair(
+                db, recipient=recipient, request_id=request.id,
+                event_key=f"service:{item.id}:version:{item.version}:assigned",
+                kind="SERVICE_ASSIGNED", subject="Service work assigned",
+                body="A CentralOps service work item was assigned to you.",
+            )
+    elif event == "request_resolved":
+        requester = db.get(User, request.requester_id)
+        if requester:
+            enqueue_pair(
+                db, recipient=requester, request_id=request.id,
+                event_key=f"service:{item.id}:version:{item.version}:resolved",
+                kind="REQUEST_RESOLVED", subject="Request resolved",
+                body="Your CentralOps request has been resolved by the service team.",
+            )
 
     request.fulfillment_state = item.status.lower()
     if item.status in {"IN_PROGRESS", "WAITING_REQUESTER"}:
