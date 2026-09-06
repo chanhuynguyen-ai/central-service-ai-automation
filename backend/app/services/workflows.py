@@ -25,6 +25,7 @@ from app.schemas.catalog import DynamicFormSchema
 from app.schemas.workflows import DecisionInput, SubmitInput, WorkflowCreate, WorkflowVersionInput
 from app.services.audit import record_audit
 from app.services.form_validation import validate_draft
+from app.services.notifications import enqueue_pair
 from app.services.permissions import user_has_any_role
 
 
@@ -243,9 +244,21 @@ def _activate(db: Session, step: WorkflowStepInstance, actor: User, request_id: 
         raise WorkflowError(409, "A snapshotted approver is unavailable; contact the workflow administrator.")
     step.status = "ACTIVE"
     step.activated_at = datetime.now(UTC)
+    tasks = []
     for user_id in step.approver_ids:
-        db.add(ApprovalTask(workflow_step_instance_id=step.id, approver_user_id=user_id))
+        task = ApprovalTask(workflow_step_instance_id=step.id, approver_user_id=user_id)
+        db.add(task)
+        tasks.append(task)
     db.flush()
+    for task in tasks:
+        recipient = db.get(User, task.approver_user_id)
+        if recipient:
+            enqueue_pair(
+                db, recipient=recipient, request_id=request_id,
+                event_key=f"approval:{task.id}:assigned", kind="APPROVAL_ASSIGNED",
+                subject="Approval task assigned",
+                body="A CentralOps request is waiting for your approval decision.",
+            )
     _audit(db, actor, "approval_step_activated", request_id, step_id=step.id)
 
 
@@ -292,6 +305,16 @@ def decide_task(db: Session, actor: User, task_id: int, payload: DecisionInput) 
         request.approval_state = request.status
         request.due_at = None
         request.draft_revision += 1
+        requester = db.get(User, request.requester_id)
+        if requester:
+            kind = "REQUEST_REJECTED" if payload.decision == "reject" else "CHANGES_REQUESTED"
+            enqueue_pair(
+                db, recipient=requester, request_id=request.id,
+                event_key=f"approval:{task.id}:{payload.decision}", kind=kind,
+                subject="Request rejected" if payload.decision == "reject" else "Changes requested",
+                body=("Your CentralOps request was rejected." if payload.decision == "reject"
+                      else "Your CentralOps request needs changes before it can continue."),
+            )
     else:
         remaining = db.query(ApprovalTask).filter_by(workflow_step_instance_id=step.id, status="PENDING").count()
         if remaining == 0:
