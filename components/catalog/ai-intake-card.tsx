@@ -94,11 +94,15 @@ export function AIIntakeCard({
           <p className="mt-1 text-sm text-slate-700">{suggestion.missing_required_fields.length ? suggestion.missing_required_fields.join(", ") : "No required fields missing."}</p>
         </div>
       </div>
+      {suggestion.clarifications.length ? <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">Please clarify before submission</p>
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-900">{suggestion.clarifications.map((item) => <li key={item.field}>{item.prompt}</li>)}</ul>
+      </div> : null}
       {suggestion.alternatives.length ? <div className="mt-4">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">Alternatives</p>
         <div className="flex flex-wrap gap-2">{suggestion.alternatives.map((item) => <button key={item.request_type_code} type="button" className={button} disabled={busy} onClick={() => void suggest(item.request_type_code)}>{item.title}</button>)}</div>
       </div> : null}
-      <p className="mt-4 text-xs leading-5 text-slate-500">AI does not choose approvers, grant permissions, or submit the request. Required fields are computed from the published form schema.</p>
+      <p className="mt-4 text-xs leading-5 text-slate-500">AI does not choose approvers, grant permissions, or submit the request. Required fields and clarification prompts are derived from the published form schema.</p>
     </div> : null}
   </section>;
 }
