@@ -1,11 +1,6 @@
 from datetime import datetime
-from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-
-
-AccessScope = Literal["ALL", "DEPARTMENT", "ROLE"]
-PolicyStatus = Literal["DRAFT", "PUBLISHED", "RETIRED"]
 
 
 class PolicyDocumentCreate(BaseModel):
@@ -16,8 +11,8 @@ class PolicyDocumentCreate(BaseModel):
     version: str = Field(min_length=1, max_length=40)
     content: str = Field(min_length=20, max_length=200_000)
     source_name: str | None = Field(default=None, max_length=255)
-    status: PolicyStatus = "PUBLISHED"
-    access_scope: AccessScope = "ALL"
+    status: str = Field(default="PUBLISHED", pattern=r"^(DRAFT|PUBLISHED|RETIRED)$")
+    access_scope: str = Field(default="ALL", pattern=r"^(ALL|DEPARTMENT|ROLE)$")
     department_id: int | None = Field(default=None, gt=0)
     role_code: str | None = Field(default=None, min_length=2, max_length=60)
     effective_from: datetime | None = None
