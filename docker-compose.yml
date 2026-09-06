@@ -103,6 +103,16 @@ services:
       SMTP_FROM: centralops@local.test
       NOTIFICATION_RETRY_SECONDS: 30
       NOTIFICATION_MAX_ATTEMPTS: 5
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "from pathlib import Path; assert b'dramatiq' in Path('/proc/1/cmdline').read_bytes()"
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 4
     depends_on:
       api:
         condition: service_healthy
