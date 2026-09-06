@@ -13,6 +13,7 @@ from app.models.models import AutomationRun
 from app.schemas.ai_intake import (
     IntakeAlternative,
     IntakeClassification,
+    IntakeClarification,
     IntakeDraftSuggestion,
 )
 from app.schemas.catalog import DynamicFormSchema
@@ -398,6 +399,13 @@ class AIIntakeService:
             for key, field in fields.items()
             if field.required and key not in cleaned
         ]
+        clarifications = [
+            IntakeClarification(
+                field=key,
+                prompt=f"Please provide {fields[key].label}.",
+            )
+            for key in missing
+        ]
         issue_codes = [f"{issue.field}:{issue.code}" for issue in issues]
         latency_ms = int((perf_counter() - start) * 1000)
         db.add(
@@ -420,6 +428,7 @@ class AIIntakeService:
             model=model,
             extracted_fields=cleaned,
             missing_required_fields=missing,
+            clarifications=clarifications,
             field_issues=issue_codes,
         )
 
