@@ -1,12 +1,12 @@
 # CentralOps AI - Project Progress Tracker
 
 **Updated:** 2026-09-06  
-**Current delivery:** PR #14 - authorized request attachments (Phase 8)  
-**Implementation branch:** `feat/request-attachments`
+**Current delivery:** PR #15 - asynchronous in-app/email notifications (M6)  
+**Implementation branch:** `feat/async-notifications`
 
 This is the canonical living tracker. Product/architecture requirements remain in
-`docs/project/`; historical delivery snapshots remain in `docs/history/`. Passing
-CI is evidence for tested behavior, not a production-security, performance or
+`docs/project/`; historical delivery snapshots remain in `docs/history/`. Passing CI
+is evidence for the tested behavior, not a production-security, performance or
 regulatory certification.
 
 ## Milestones
@@ -18,99 +18,87 @@ regulatory certification.
 | M2 structured catalog/drafts | Merged in PR #9/#10 |
 | M3 sequential approvals | Merged in PR #11 |
 | M4 timeline/comments/audit | Merged in PR #12 |
-| M5 service fulfillment | Merged in PR #13 at `bbc26aa` |
-| **Phase 8 authorized attachments** | **Implemented in PR #14; final CI/PostgreSQL/Docker+MinIO verification required before merge** |
-| M6 async communication | Not implemented; Redis infrastructure only |
-| M7 AI intake | Later phase; legacy triage is not M7 |
-| M8 policy RAG | Later phase; lexical prototype is not M8 |
+| M5 service fulfillment | Merged in PR #13 |
+| Phase 8 authorized attachments | Merged in PR #14 |
+| **M6 async communication** | **Implemented in PR #15; final application checkpoint verified green** |
+| M7 AI intake | Next after PR #15 merge; legacy triage is not M7 |
+| M8 policy RAG | Later; lexical prototype is not M8 |
 
-## Delivered in Phase 8
+## Delivered in M6
 
-- Added `request_attachments` metadata with explicit PENDING/READY/QUARANTINED/DELETED
-  state and requester-visible/internal visibility.
-- File bytes stay in MinIO/S3-compatible storage; PostgreSQL stores only governed
-  metadata and object references.
-- Upload reservation requires authenticated request scope and a supported MIME type,
-  normalized safe filename and configured size limit.
-- Browser uploads directly with a short-lived presigned POST. The S3 policy binds
-  content type and maximum length to the reserved file rather than relying only on
-  client-side checks.
-- Upload completion locks the metadata row and verifies stored object size/content type
-  using server-side S3 HEAD before marking the attachment READY.
-- Client-provided checksum claims are not treated as verified integrity metadata;
-  trusted server/worker hashing is deferred.
-- Every download request is re-authorized before issuing a short-lived presigned GET.
-- Structured drafts remain owner-only; submitted request access reuses governed
-  requester/approval/manager/admin/auditor scope and adds active routed service-team
-  scope for fulfillment files.
-- INTERNAL attachments are hidden from the requester and limited to service-team,
-  ADMIN/AUDITOR read scope; internal upload is limited to service staff/admin.
-- Attachment readiness is audited and appears as a safe request timeline event without
-  copying filenames or file contents into audit metadata.
-- Request detail now supports direct upload/list/download for requester-visible files.
-- MinIO receives a health gate in Compose and separate API-internal/browser-public S3
-  endpoints so generated URLs work across the Docker/host boundary.
+- Durable PostgreSQL notification intents written inside approval/fulfillment
+  transactions; no SMTP/Redis network call occurs inside core business transitions.
+- Paired in-app and email channels with unique event/channel idempotency keys.
+- Lifecycle notifications for approval assignment, rejection, request changes, final
+  approval, service assignment and resolution.
+- Recipient-scoped in-app list/read/read-all API and workspace bell with unread count.
+- Redis-backed Dramatiq worker plus a durable scanner for PENDING/FAILED email rows.
+- Persisted retry attempts/backoff and terminal DEAD state without replaying the
+  request/approval/fulfillment action.
+- Mailpit development SMTP catcher and browser-verifiable email delivery.
+- Worker starts after the API migration/readiness gate and has its own Dramatiq
+  process healthcheck rather than inheriting the API HTTP healthcheck.
 
-## Database and storage
+## Database and runtime
 
-Phase 8 revision: `h9d3f6c8e045`, following M5 `g8c2e5b7d934`.
+M6 revision: `i0e4g7d9f156`, following Phase 8 `h9d3f6c8e045`.
 
-The migration adds `request_attachments`, indexes and lifecycle/visibility checks.
-Downgrade refuses when READY/QUARANTINED metadata exists because binary objects may
-still live in external object storage.
+Main runtime services now include PostgreSQL, Redis, MinIO, API, notification worker,
+Mailpit and web. Mailpit is local-development infrastructure only.
 
-Local object-storage defaults:
+Primary files:
 
-```text
-API -> MinIO: http://minio:9000
-Browser -> MinIO: http://localhost:9000
-Bucket: centralops
-Presign expiry: 300 seconds
-Application max attachment size: 10 MiB
-```
+- `backend/app/models/notifications.py`
+- `backend/app/schemas/notifications.py`
+- `backend/app/services/notifications.py`
+- `backend/app/api/routes/notifications.py`
+- `backend/app/notification_tasks.py`
+- `backend/app/db/enqueue_pending_notifications.py`
+- `backend/alembic/versions/i0e4g7d9f156_add_notifications.py`
+- `lib/notification-api.ts`
+- `components/notifications/notification-center.tsx`
+- `scripts/m6_browser_smoke.py`
+- `docs/M6_ASYNC_NOTIFICATIONS.md`
 
-## Primary Phase 8 files
+## Verification checkpoint
 
-- Domain model: `backend/app/models/attachments.py`
-- Schemas: `backend/app/schemas/attachments.py`
-- Authorization/lifecycle: `backend/app/services/attachments.py`
-- S3 adapter: `backend/app/services/storage.py`
-- API: `backend/app/api/routes/attachments.py`
-- Migration: `backend/alembic/versions/h9d3f6c8e045_add_request_attachments.py`
-- Backend tests: `backend/tests/test_attachments.py`
-- Frontend API/UI: `lib/attachment-api.ts`, `components/attachments/request-attachments.tsx`
-- Browser gate: `scripts/m8_browser_smoke.py`
-- Reviewer/run guide: `docs/M8_REQUEST_ATTACHMENTS.md`
+Verified application HEAD before documentation-only updates:
+`69cd80bda4b9a555dadb321db90b1aafb7fe830c`.
 
-## Verification gates
+| Gate | Evidence |
+|---|---|
+| CI backend + frontend | **#90 / 34011134494 SUCCESS**: **144 backend tests**, **81% coverage**, Ruff, clean SQLite migration, TypeScript, ESLint, production build and frontend tests |
+| PostgreSQL regressions | **#63 / 34011134498 SUCCESS**: clean migration and existing workflow/activity/fulfillment concurrency/integrity probes |
+| Docker/Chromium M2-M6 | **#66 / 34011134496 SUCCESS**: production Compose, M2-M5 + Phase 8 regressions, asynchronous Mailpit email and in-app notification UI |
 
-PR #14 stays draft until the final branch HEAD passes all of these:
+The first browser attempts exposed startup sequencing and inherited-healthcheck defects;
+those failures were used to harden Compose. The successful checkpoint includes the
+fixes, not the earlier failing configuration.
 
-1. Ruff + clean SQLite migration + full backend regressions.
-2. TypeScript + ESLint + production frontend build + executable frontend regressions.
-3. Clean PostgreSQL migration plus existing M3/M4/M5 concurrency/integrity gates.
-4. Production Docker Compose with PostgreSQL/Redis/MinIO plus real Chromium regression
-   through M2/M3/M4/M5 and a Phase 8 upload -> completion -> list -> authorized download
-   whose downloaded bytes match the uploaded synthetic fixture.
+Documentation commits after the application checkpoint do not change runtime code;
+PR #15 must still be green on its final HEAD before merge.
 
-No completion/merge claim is made until these HEAD-specific gates succeed.
+## Delivery semantics and limits
 
-## Explicit limits
+Core business actions are not retried by the notification worker. Notification record
+creation is database-idempotent by event/channel. External SMTP remains at-least-once:
+a crash after SMTP acceptance but before recording SENT could duplicate an email on a
+later retry. That limitation is explicit rather than presented as exactly-once email.
 
-Phase 8 does **not** provide malware scanning, antivirus certification, retention/legal
-hold, object versioning, trusted server-computed SHA-256, large multipart upload,
-preview conversion, backup validation or production S3 policy review. These boundaries
-are intentional and documented rather than implied.
+M6 does not include production SMTP credentials/provider validation, push/mobile,
+Teams/Slack, SSE/WebSocket realtime delivery, per-user preference controls, delivery
+analytics, or production load/failure certification.
 
-Existing auth hardening items also remain: secure-cookie transport, immediate access
-JWT revocation, rate limiting, dependency remediation, TLS/backups and broader
-failure/load/security review.
+Existing hardening backlog also remains: secure-cookie refresh transport, stronger
+access-token revocation/rate limiting, dependency remediation, TLS/backups,
+retention/redaction and broader security/load testing.
 
 ## Next
 
-After Phase 8 is verified and merged, implement **Phase 9 / M6 asynchronous
-communication**: Redis-backed worker, in-app notifications, email adapter and retry
-behavior that cannot repeat core business actions.
+After PR #15 is final-green and merged, implement **Phase 10 / M7 AI Intake**:
+classify against the published catalog, extract schema-bound editable values, compute
+missing required fields deterministically, ask clarifying questions, expose confidence
+and always require the employee to review/confirm. AI must not authorize, route final
+approval authority, or bypass the standard request path.
 
-Do not jump to AI intake/RAG before this governed standard request path remains
-reliable through file handling and asynchronous communication.
+Policy pgvector RAG remains Phase 11 after AI intake, not a parallel shortcut.
