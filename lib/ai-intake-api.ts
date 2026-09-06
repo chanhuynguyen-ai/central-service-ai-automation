@@ -7,6 +7,11 @@ export type IntakeAlternative = {
   confidence: number;
 };
 
+export type IntakeClarification = {
+  field: string;
+  prompt: string;
+};
+
 export type IntakeDraftSuggestion = {
   request_type_code: string;
   title: string;
@@ -19,6 +24,7 @@ export type IntakeDraftSuggestion = {
   model: string;
   extracted_fields: FormData;
   missing_required_fields: string[];
+  clarifications: IntakeClarification[];
   field_issues: string[];
 };
 
