@@ -12,8 +12,8 @@ from app.models.catalog import RequestType, RequestTypeVersion
 from app.models.models import AutomationRun
 from app.schemas.ai_intake import (
     IntakeAlternative,
-    IntakeClassification,
     IntakeClarification,
+    IntakeClassification,
     IntakeDraftSuggestion,
 )
 from app.schemas.catalog import DynamicFormSchema
