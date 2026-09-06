@@ -17,6 +17,11 @@ class IntakeAlternative(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
 
 
+class IntakeClarification(BaseModel):
+    field: str
+    prompt: str
+
+
 class IntakeClassification(BaseModel):
     request_type_code: str
     title: str
@@ -32,4 +37,5 @@ class IntakeClassification(BaseModel):
 class IntakeDraftSuggestion(IntakeClassification):
     extracted_fields: dict[str, Any]
     missing_required_fields: list[str]
+    clarifications: list[IntakeClarification] = Field(default_factory=list)
     field_issues: list[str] = Field(default_factory=list)
