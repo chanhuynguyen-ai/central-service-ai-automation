@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.routes import (
     activity,
+    ai_intake,
     analytics,
     assistant,
     attachments,
@@ -29,6 +30,7 @@ api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 api_router.include_router(drafts.router, prefix="/requests/drafts", tags=["Request drafts"])
 api_router.include_router(requests.router, prefix="/requests", tags=["Service requests"])
 api_router.include_router(catalog.router, prefix="/catalog", tags=["Request catalog"])
+api_router.include_router(ai_intake.router, prefix="/ai/intake", tags=["AI intake"])
 api_router.include_router(assistant.router, prefix="/assistant", tags=["AI assistant"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
 api_router.include_router(automation.router, prefix="/automation", tags=["Automation monitoring"])
