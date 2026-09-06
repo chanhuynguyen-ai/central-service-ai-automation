@@ -1,0 +1,42 @@
+name: Apply M6 notification center hook
+
+on:
+  push:
+    branches: [feat/async-notifications]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-ui:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch workspace notification bell
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path('app/workspace.tsx')
+          text = path.read_text()
+          text = text.replace('Activity, BarChart3, Bell, Bot, CheckCircle2,', 'Activity, BarChart3, Bot, CheckCircle2,')
+          marker = 'import { CatalogWorkspace } from "@/components/catalog/catalog-workspace";\n'
+          if 'NotificationCenter' not in text:
+              text = text.replace(marker, marker + 'import { NotificationCenter } from "@/components/notifications/notification-center";\n')
+          old = '<Button variant="ghost" size="icon" className="relative"><Bell /><span className="absolute right-2 top-2 size-1.5 rounded-full bg-blue-600" /><span className="sr-only">Notifications</span></Button>'
+          if old in text:
+              text = text.replace(old, '<NotificationCenter request={withSessionRefresh} />')
+          elif '<NotificationCenter request={withSessionRefresh} />' not in text:
+              raise SystemExit('notification button target not found')
+          path.write_text(text)
+      - name: Commit workspace hook
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/workspace.tsx
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'feat(frontend): connect notification center to workspace'
+          git push origin HEAD:feat/async-notifications
