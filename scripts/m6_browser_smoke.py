@@ -1,6 +1,7 @@
 """Opt-in M6 notification smoke against disposable localhost Docker/PostgreSQL only."""
 import json
 import os
+import re
 import time
 from pathlib import Path
 from urllib.parse import urlparse
@@ -50,11 +51,11 @@ def run():
         try:
             page.goto(BASE, wait_until="networkidle")
             sign_in(page, "employee@centralops.demo", "Employee123!")
-            bell = page.get_by_role("button", name=lambda name: name.startswith("Notifications"))
+            bell = page.get_by_role("button", name=re.compile(r"^Notifications"))
             expect(bell).to_be_visible()
             bell.click()
             expect(page.get_by_role("heading", name="Notifications", exact=True)).to_be_visible()
-            expect(page.get_by_text("Changes requested", exact=True).or_(page.get_by_text("Request approved", exact=True)).first).to_be_visible()
+            expect(page.get_by_text("Changes requested", exact=True).first).to_be_visible()
             mark_all = page.get_by_role("button", name="Mark all read", exact=True)
             if mark_all.is_enabled():
                 mark_all.click()
