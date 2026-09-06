@@ -62,7 +62,9 @@ def _project_vector(values: list[float]) -> list[float]:
 def deterministic_embedding(value: str) -> list[float]:
     vector = [0.0] * EMBEDDING_DIMENSIONS
     tokens = TOKEN.findall(value.lower())
-    features = tokens + [f"{left}_{right}" for left, right in zip(tokens, tokens[1:])]
+    features = tokens + [
+        f"{left}_{right}" for left, right in zip(tokens, tokens[1:], strict=False)
+    ]
     for feature in features:
         digest = hashlib.blake2b(feature.encode("utf-8"), digest_size=8).digest()
         bucket = int.from_bytes(digest[:4], "big") % EMBEDDING_DIMENSIONS
@@ -105,7 +107,7 @@ def vector_literal(vector: list[float]) -> str:
 
 
 def _cosine(left: list[float], right: list[float]) -> float:
-    return sum(a * b for a, b in zip(left, right))
+    return sum(a * b for a, b in zip(left, right, strict=True))
 
 
 def chunk_policy_text(content: str, max_chars: int = 900) -> list[tuple[str, str | None]]:
