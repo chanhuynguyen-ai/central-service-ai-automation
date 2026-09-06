@@ -331,6 +331,14 @@ def decide_task(db: Session, actor: User, task_id: int, payload: DecisionInput) 
                 # Approval is NOT fulfillment; service work items belong to Phase 7.
                 request.fulfillment_state = "not_queued"
                 request.approved_at = now
+                requester = db.get(User, request.requester_id)
+                if requester:
+                    enqueue_pair(
+                        db, recipient=requester, request_id=request.id,
+                        event_key=f"request:{request.id}:attempt:{instance.attempt}:approved",
+                        kind="REQUEST_APPROVED", subject="Request approved",
+                        body="Your CentralOps request completed its approval workflow and entered service fulfillment.",
+                    )
                 _audit(db, actor, "workflow_approved", request.id, instance_id=instance.id)
     request.updated_at = now
     db.flush()
