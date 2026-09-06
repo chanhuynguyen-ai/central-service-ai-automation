@@ -1,0 +1,55 @@
+name: Finish M6 notification domain hooks
+
+on:
+  push:
+    branches: [feat/async-notifications]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-domain:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch remaining lifecycle hooks
+        shell: python
+        run: |
+          from pathlib import Path
+
+          workflow = Path('backend/app/services/workflows.py')
+          text = workflow.read_text()
+          if 'kind="REQUEST_APPROVED"' not in text:
+              old = '''                request.approved_at = now\n                _audit(db, actor, "workflow_approved", request.id, instance_id=instance.id)\n'''
+              new = '''                request.approved_at = now\n                requester = db.get(User, request.requester_id)\n                if requester:\n                    enqueue_pair(\n                        db, recipient=requester, request_id=request.id,\n                        event_key=f"request:{request.id}:attempt:{instance.attempt}:approved",\n                        kind="REQUEST_APPROVED", subject="Request approved",\n                        body="Your CentralOps request completed its approval workflow and entered service fulfillment.",\n                    )\n                _audit(db, actor, "workflow_approved", request.id, instance_id=instance.id)\n'''
+              if old not in text:
+                  raise SystemExit('final approval target not found')
+              text = text.replace(old, new)
+          workflow.write_text(text)
+
+          fulfillment = Path('backend/app/services/fulfillment.py')
+          text = fulfillment.read_text()
+          if 'from app.services.notifications import enqueue_pair' not in text:
+              text = text.replace(
+                  'from app.services.audit import record_audit\nfrom app.services.permissions import user_has_any_role\n',
+                  'from app.services.audit import record_audit\nfrom app.services.notifications import enqueue_pair\nfrom app.services.permissions import user_has_any_role\n',
+              )
+          if 'kind="SERVICE_ASSIGNED"' not in text:
+              old = '''    db.refresh(item)\n\n    request.fulfillment_state = item.status.lower()\n'''
+              new = '''    db.refresh(item)\n\n    if event == "service_assigned" and item.assignee_user_id:\n        recipient = db.get(User, item.assignee_user_id)\n        if recipient:\n            enqueue_pair(\n                db, recipient=recipient, request_id=request.id,\n                event_key=f"service:{item.id}:version:{item.version}:assigned",\n                kind="SERVICE_ASSIGNED", subject="Service work assigned",\n                body="A CentralOps service work item was assigned to you.",\n            )\n    elif event == "request_resolved":\n        requester = db.get(User, request.requester_id)\n        if requester:\n            enqueue_pair(\n                db, recipient=requester, request_id=request.id,\n                event_key=f"service:{item.id}:version:{item.version}:resolved",\n                kind="REQUEST_RESOLVED", subject="Request resolved",\n                body="Your CentralOps request has been resolved by the service team.",\n            )\n\n    request.fulfillment_state = item.status.lower()\n'''
+              if old not in text:
+                  raise SystemExit('fulfillment target not found')
+              text = text.replace(old, new)
+          fulfillment.write_text(text)
+      - name: Commit hooks
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend/app/services/workflows.py backend/app/services/fulfillment.py
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'feat(notifications): complete lifecycle notification intents'
+          git push origin HEAD:feat/async-notifications
