@@ -21,8 +21,8 @@ regulatory certification.
 | M5 service fulfillment | Merged in PR #13 |
 | Phase 8 authorized attachments | Merged in PR #14 |
 | M6 async communication | Merged in PR #15 |
-| **M7 AI intake** | **Implemented in PR #16; final verification pending on current HEAD** |
-| M8 policy RAG | Next only after M7 is final-green and merged |
+| **M7 AI intake** | **Implementation gates verified in PR #16; merge pending final docs-only HEAD checks** |
+| M8 policy RAG | Next only after M7 is merged |
 
 ## Delivered in M7
 
@@ -41,8 +41,8 @@ regulatory certification.
 - Existing Ollama/OpenAI-compatible adapters remain available while CI and the local
   demo use a deterministic `mock` fallback.
 - A 30-case evaluation corpus covers laptop replacement, software access and expense
-  reimbursement. CI tracks top-1, top-2, expected-field extraction and missing-field
-  correctness thresholds.
+  reimbursement. CI enforces top-1 >= 90%, top-2 >= 95%, expected-field extraction
+  >= 90% and deterministic missing-field correctness = 100%.
 - Chromium smoke coverage exercises AI suggestion -> explicit review -> normal editable
   draft -> explicit save without autonomous submission.
 
@@ -71,20 +71,28 @@ Primary files:
 
 ## Verification status
 
-Earlier PR #16 runs exposed two real defects: high-confidence suggestions did not
-always require explicit confirmation, and the deterministic fallback did not populate
-a narrative `reason` field from a clearly stated request. Both were corrected rather
-than weakening the tests.
+Earlier PR #16 runs exposed real defects rather than being ignored:
 
-Current final verification must be green on the latest PR #16 HEAD before merge:
+- high-confidence suggestions did not always require explicit confirmation;
+- deterministic fallback omitted a clearly stated narrative `reason`;
+- the first M7 browser assertion used an ambiguous accessible-label locator even though
+  the actual `cost_center` value was correct.
 
-- Ruff + clean SQLite migration + full backend pytest/coverage.
-- Frontend typecheck + ESLint + production build + frontend tests.
-- Clean PostgreSQL migrations plus existing concurrency/integrity probes.
-- Production Docker/Chromium regression through M2-M7.
-- 30-case AI intake evaluation quality gates.
+The implementation was corrected and re-tested. On implementation checkpoint
+`d75108b33d47b9a554549dfac08520ccfa87709a`:
 
-Do not mark M7 verified or merge solely because an older checkpoint passed.
+- **CI #115 / run 34046327510: PASS** — Ruff, clean SQLite migration, full backend
+  pytest/coverage, frontend typecheck, ESLint, production build and frontend tests.
+- **Workflow PostgreSQL verification #88 / run 34046327444: PASS** — clean PostgreSQL
+  migration plus existing workflow/activity/fulfillment concurrency and integrity probes.
+- **Browser and PostgreSQL smoke #91 / run 34046327422: PASS** — production Docker
+  regression through M2-M7, including explicit human review/save for AI intake.
+- Backend suite at the immediately preceding equivalent implementation checkpoint
+  reported **149 passed, 2 warnings, 81% coverage**; the M7 evaluation test passed its
+  declared quality thresholds.
+
+This documentation commit changes no runtime behavior. The PR still follows exact-head
+discipline: final docs-only HEAD checks must be green before merge.
 
 ## AI boundaries
 
@@ -109,8 +117,8 @@ security/load testing remain later hardening work.
 
 ## Next
 
-After PR #16 is final-green and merged, implement **Phase 11 / M8 Policy RAG**:
-pgvector-backed policy chunks, permission/effective-date filtering before model context,
-grounded answers with citations and explicit insufficient-evidence behavior.
+After PR #16 is merged, implement **Phase 11 / M8 Policy RAG**: pgvector-backed policy
+chunks, permission/effective-date filtering before model context, grounded answers with
+citations and explicit insufficient-evidence behavior.
 
 Do not begin RAG by bypassing access scope or treating the model as policy authority.
