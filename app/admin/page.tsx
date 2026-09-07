@@ -67,34 +67,62 @@ export default function AdminPage() {
     [versions],
   );
 
+  function applyVersions(items: AdminRequestTypeVersion[]) {
+    setVersions(items);
+    const draft = [...items].reverse().find((item) => item.status === "DRAFT");
+    if (draft) {
+      setNewTitle(draft.title);
+      setNewDescription(draft.description ?? "");
+      setSchemaText(JSON.stringify(draft.form_schema, null, 2));
+    } else {
+      setNewTitle("");
+      setNewDescription("");
+      setSchemaText(DEFAULT_SCHEMA);
+    }
+  }
+
+  async function selectType(requestTypeId: number) {
+    setSelectedId(requestTypeId);
+    const items = await listAdminRequestTypeVersions(token, requestTypeId);
+    applyVersions(items);
+  }
+
   async function loadTypes(preferredId?: number) {
     if (!token || !isAdmin) return;
     const items = await listAdminRequestTypes(token);
     setTypes(items);
     const nextId = preferredId ?? selectedId ?? items[0]?.id ?? null;
-    setSelectedId(nextId);
-    if (nextId) setVersions(await listAdminRequestTypeVersions(token, nextId));
+    if (nextId) {
+      await selectType(nextId);
+    } else {
+      setSelectedId(null);
+      applyVersions([]);
+    }
   }
 
   useEffect(() => {
     if (!token || !isAdmin) return;
-    void loadTypes().catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load admin catalog."));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let cancelled = false;
+    void listAdminRequestTypes(token)
+      .then(async (items) => {
+        if (cancelled) return;
+        setTypes(items);
+        const nextId = items[0]?.id ?? null;
+        setSelectedId(nextId);
+        if (!nextId) {
+          applyVersions([]);
+          return;
+        }
+        const nextVersions = await listAdminRequestTypeVersions(token, nextId);
+        if (!cancelled) applyVersions(nextVersions);
+      })
+      .catch((cause) => {
+        if (!cancelled) setError(cause instanceof Error ? cause.message : "Could not load admin catalog.");
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [token, isAdmin]);
-
-  useEffect(() => {
-    if (!token || !isAdmin || !selectedId) return;
-    void listAdminRequestTypeVersions(token, selectedId)
-      .then(setVersions)
-      .catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load versions."));
-  }, [token, isAdmin, selectedId]);
-
-  useEffect(() => {
-    if (!draftVersion) return;
-    setNewTitle(draftVersion.title);
-    setNewDescription(draftVersion.description ?? "");
-    setSchemaText(JSON.stringify(draftVersion.form_schema, null, 2));
-  }, [draftVersion]);
 
   async function run(action: () => Promise<void>) {
     setLoading(true);
@@ -150,7 +178,7 @@ export default function AdminPage() {
         form_schema: parsedSchema(),
       });
       setMessage(`Created immutable candidate v${created.version} as DRAFT.`);
-      setVersions(await listAdminRequestTypeVersions(token, selected.id));
+      applyVersions(await listAdminRequestTypeVersions(token, selected.id));
     });
   }
 
@@ -163,7 +191,7 @@ export default function AdminPage() {
         form_schema: parsedSchema(),
       });
       setMessage(`Saved draft v${draftVersion.version}. Published history remains unchanged.`);
-      setVersions(await listAdminRequestTypeVersions(token, selected.id));
+      applyVersions(await listAdminRequestTypeVersions(token, selected.id));
     });
   }
 
@@ -173,7 +201,7 @@ export default function AdminPage() {
     await run(async () => {
       await publishAdminRequestTypeVersion(token, selected.id, draftVersion.version);
       setMessage(`Published ${selected.code} v${draftVersion.version}. Existing submitted requests keep their original version snapshot.`);
-      setVersions(await listAdminRequestTypeVersions(token, selected.id));
+      applyVersions(await listAdminRequestTypeVersions(token, selected.id));
     });
   }
 
@@ -235,7 +263,7 @@ export default function AdminPage() {
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => setSelectedId(item.id)}
+                    onClick={() => void run(() => selectType(item.id))}
                     className={`rounded-xl border px-3 py-3 text-left transition ${selectedId === item.id ? "border-blue-200 bg-blue-50" : "border-transparent hover:bg-slate-50"}`}
                   >
                     <div className="flex items-center justify-between gap-2">
