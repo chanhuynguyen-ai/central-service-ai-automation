@@ -36,21 +36,23 @@ def run() -> None:
         try:
             page.goto(BASE, wait_until="networkidle")
             sign_in(page)
+            page.goto(f"{BASE}/knowledge", wait_until="networkidle")
 
-            nav = page.get_by_role("navigation", name="Primary navigation")
-            nav.get_by_role("button", name="AI assistant", exact=True).click()
             expect(page.get_by_role("heading", name="Policy assistant", exact=True)).to_be_visible()
+            expect(page.get_by_text("Permission filtered", exact=True)).to_be_visible()
 
-            question = page.get_by_placeholder("Ask about a request or policy...")
+            question = page.get_by_label("Policy question", exact=True)
             question.fill("When may I request a managed laptop replacement?")
-            question.press("Enter")
+            page.get_by_role("button", name="Ask policy", exact=True).click()
 
-            expect(page.get_by_text("Managed Device Replacement Policy", exact=False)).to_be_visible(timeout=30000)
+            expect(page.get_by_text("Grounded answer", exact=True)).to_be_visible(timeout=30000)
+            expect(page.get_by_text("Managed Device Replacement Policy", exact=False)).to_be_visible()
             expect(page.get_by_text("repeated hardware failures", exact=False)).to_be_visible()
+            expect(page.get_by_role("heading", name="Evidence", exact=True)).to_be_visible()
             page.screenshot(path=str(ARTIFACTS / "m8-policy-rag-grounded.png"), full_page=True)
 
             assert not errors, f"Browser runtime errors: {errors}"
-            print("PASS: policy assistant -> permission-filtered knowledge endpoint -> grounded answer")
+            print("PASS: knowledge UI -> permission-filtered RAG -> grounded answer + evidence")
         except Exception:
             page.screenshot(path=str(ARTIFACTS / "m8-policy-rag-failure.png"), full_page=True)
             raise
