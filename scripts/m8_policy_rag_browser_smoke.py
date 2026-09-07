@@ -46,8 +46,8 @@ def run() -> None:
             page.get_by_role("button", name="Ask policy", exact=True).click()
 
             expect(page.get_by_text("Grounded answer", exact=True)).to_be_visible(timeout=30000)
-            expect(page.get_by_text("Managed Device Replacement Policy", exact=False)).to_be_visible()
-            expect(page.get_by_text("repeated hardware failures", exact=False)).to_be_visible()
+            expect(page.get_by_text("Managed Device Replacement Policy · v1.0", exact=True)).to_be_visible()
+            expect(page.get_by_text("repeated hardware failures", exact=False).first).to_be_visible()
             expect(page.get_by_role("heading", name="Evidence", exact=True)).to_be_visible()
             page.screenshot(path=str(ARTIFACTS / "m8-policy-rag-grounded.png"), full_page=True)
 
