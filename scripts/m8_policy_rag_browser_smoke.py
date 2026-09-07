@@ -41,10 +41,9 @@ def run() -> None:
             nav.get_by_role("button", name="AI assistant", exact=True).click()
             expect(page.get_by_role("heading", name="Policy assistant", exact=True)).to_be_visible()
 
-            page.get_by_placeholder("Ask about a request or policy...").fill(
-                "When may I request a managed laptop replacement?"
-            )
-            page.get_by_role("button", name="Send", exact=False).click()
+            question = page.get_by_placeholder("Ask about a request or policy...")
+            question.fill("When may I request a managed laptop replacement?")
+            question.press("Enter")
 
             expect(page.get_by_text("Managed Device Replacement Policy", exact=False)).to_be_visible(timeout=30000)
             expect(page.get_by_text("repeated hardware failures", exact=False)).to_be_visible()
