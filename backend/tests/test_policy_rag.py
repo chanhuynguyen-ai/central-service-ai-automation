@@ -57,7 +57,7 @@ def test_policy_ingestion_requires_admin_and_returns_grounded_citation(client: T
 def test_department_scope_is_filtered_before_retrieval(client: TestClient) -> None:
     admin = login(client, "admin")
     employee = login(client, "employee")
-    other = login(client, "other_employee")
+    other = login(client, "employee2")
     employee_user = client.get("/api/v1/auth/me", headers=employee).json()
     lookups = client.get("/api/v1/requests/drafts/lookups", headers=employee).json()
     department = next(item for item in lookups["departments"] if item["name"] == employee_user["department"])
