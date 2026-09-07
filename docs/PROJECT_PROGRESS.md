@@ -1,8 +1,8 @@
 # CentralOps AI - Project Progress Tracker
 
-**Updated:** 2026-09-06  
-**Current delivery:** PR #16 - catalog-grounded AI-assisted request intake (M7)  
-**Implementation branch:** `feat/ai-intake`
+**Updated:** 2026-09-07  
+**Current delivery:** PR #18 - permission-aware pgvector policy RAG (M8)  
+**Implementation branch:** `feat/policy-rag`
 
 This is the canonical living tracker. Product/architecture requirements remain in
 `docs/project/`; historical delivery snapshots remain in `docs/history/`. Passing CI
@@ -21,104 +21,90 @@ regulatory certification.
 | M5 service fulfillment | Merged in PR #13 |
 | Phase 8 authorized attachments | Merged in PR #14 |
 | M6 async communication | Merged in PR #15 |
-| **M7 AI intake** | **Implementation gates verified in PR #16; merge pending final docs-only HEAD checks** |
-| M8 policy RAG | Next only after M7 is merged |
+| M7 AI intake | Merged in PR #16 |
+| **M8 policy RAG** | **Implemented in PR #18; final exact-head verification pending** |
 
-## Delivered in M7
+## Delivered in M8
 
-- Free-text intake classification constrained to active, published request types.
-- Confidence plus alternative request-type suggestions for human review.
-- Schema-bound extraction that only accepts fields from the selected published form.
-- Pydantic validation of external model output with deterministic fallback behavior.
-- Extracted values are revalidated by the same deterministic form validator used by
-  normal drafts; invalid or unsupported values never bypass the request schema.
-- Missing required fields are computed from the published form schema, not by an LLM.
-- Clarification prompts are generated deterministically from those missing fields.
-- Every AI suggestion is advisory: even high-confidence classification requires human
-  confirmation, remains editable and is not saved or submitted automatically.
-- Human selection of an alternative request type is authoritative for extraction; the
-  model cannot silently switch the selected request type.
-- Existing Ollama/OpenAI-compatible adapters remain available while CI and the local
-  demo use a deterministic `mock` fallback.
-- A 30-case evaluation corpus covers laptop replacement, software access and expense
-  reimbursement. CI enforces top-1 >= 90%, top-2 >= 95%, expected-field extraction
-  >= 90% and deterministic missing-field correctness = 100%.
-- Chromium smoke coverage exercises AI suggestion -> explicit review -> normal editable
-  draft -> explicit save without autonomous submission.
+- PostgreSQL `pgvector` extension and vector-backed policy chunks.
+- Versioned policy documents with publication status, effective dates, checksums and source metadata.
+- Access scopes `ALL`, `DEPARTMENT` and `ROLE`.
+- Permission/effective-date filtering occurs before vector retrieval and before any chunk is supplied to an LLM.
+- Deterministic hash embeddings for repeatable local/CI behavior.
+- Ollama and OpenAI-compatible embedding adapters with deterministic fallback.
+- Grounded policy answer endpoint with structured citations and explicit insufficient-evidence behavior.
+- ADMIN-only policy ingestion and ADMIN/AUDITOR policy listing.
+- Policy indexing audit event.
+- Demo policy seed covering public, Finance-only and Auditor-only material.
+- SQLite-compatible migration path plus a real PostgreSQL pgvector verification probe.
+- Dedicated `/knowledge` UI showing grounded answers, evidence cards, retrieval score, section/source metadata and insufficient-evidence warnings.
+- Browser smoke path seeds policy content and verifies the employee knowledge UI against the permission-aware RAG endpoint.
 
 ## Runtime/API surface
 
 New endpoints:
 
-- `POST /api/v1/ai/intake/classify`
-- `POST /api/v1/ai/intake/draft`
+- `POST /api/v1/ai/knowledge/documents` — ADMIN
+- `GET /api/v1/ai/knowledge/documents` — ADMIN/AUDITOR
+- `POST /api/v1/ai/knowledge/ask` — authenticated users
 
-M7 adds no database migration. It reuses immutable published request-type versions and
-existing automation-run telemetry.
+Migration:
+
+- `j1f5e8a0b267` — permission-aware policy RAG storage; down revision `i0e4g7d9f156`.
 
 Primary files:
 
-- `backend/app/schemas/ai_intake.py`
-- `backend/app/services/ai_intake.py`
-- `backend/app/api/routes/ai_intake.py`
-- `backend/tests/test_ai_intake.py`
-- `backend/tests/test_ai_intake_eval.py`
-- `backend/evals/ai_intake_cases.json`
-- `lib/ai-intake-api.ts`
-- `components/catalog/ai-intake-card.tsx`
-- `components/catalog/catalog-workspace.tsx`
-- `scripts/m7_browser_smoke.py`
+- `backend/app/models/knowledge.py`
+- `backend/app/schemas/knowledge.py`
+- `backend/app/services/knowledge.py`
+- `backend/app/api/routes/knowledge.py`
+- `backend/app/db/seed_policies.py`
+- `backend/app/db/verify_policy_rag.py`
+- `backend/tests/test_policy_rag.py`
+- `backend/alembic/versions/j1f5e8a0b267_add_policy_rag.py`
+- `app/knowledge/page.tsx`
+- `lib/api.ts`
+- `scripts/m8_policy_rag_browser_smoke.py`
 
 ## Verification status
 
-Earlier PR #16 runs exposed real defects rather than being ignored:
+PR #18 initially exposed real implementation/test defects and they were corrected rather than bypassed:
 
-- high-confidence suggestions did not always require explicit confirmation;
-- deterministic fallback omitted a clearly stated narrative `reason`;
-- the first M7 browser assertion used an ambiguous accessible-label locator even though
-  the actual `cost_center` value was correct.
+- Ruff import/`zip(strict=...)` violations in the new RAG code.
+- Two test login aliases that did not match the existing seeded fixture names.
+- The first knowledge-page implementation triggered the strict React `set-state-in-effect` lint rule.
 
-The implementation was corrected and re-tested. On implementation checkpoint
-`d75108b33d47b9a554549dfac08520ccfa87709a`:
+The latest branch must still pass exact-head verification before merge:
 
-- **CI #115 / run 34046327510: PASS** — Ruff, clean SQLite migration, full backend
-  pytest/coverage, frontend typecheck, ESLint, production build and frontend tests.
-- **Workflow PostgreSQL verification #88 / run 34046327444: PASS** — clean PostgreSQL
-  migration plus existing workflow/activity/fulfillment concurrency and integrity probes.
-- **Browser and PostgreSQL smoke #91 / run 34046327422: PASS** — production Docker
-  regression through M2-M7, including explicit human review/save for AI intake.
-- Backend suite at the immediately preceding equivalent implementation checkpoint
-  reported **149 passed, 2 warnings, 81% coverage**; the M7 evaluation test passed its
-  declared quality thresholds.
+- Ruff + clean SQLite migration + full backend pytest/coverage.
+- Frontend typecheck + ESLint + production build + frontend tests.
+- Clean PostgreSQL migration plus existing concurrency/integrity probes.
+- pgvector extension/storage/distance verification.
+- Production Docker/Chromium regression through M2-M8.
 
-This documentation commit changes no runtime behavior. The PR still follows exact-head
-discipline: final docs-only HEAD checks must be green before merge.
+Do not mark M8 verified or merge solely because an earlier checkpoint passed.
 
-## AI boundaries
+## RAG governance boundaries
 
-AI can classify, extract, suggest and explain. It still cannot:
+Policy RAG is evidence support, not policy authority. AI still cannot:
 
-- authorize a user,
-- choose final approval authority,
-- bypass deterministic routing,
-- publish a request type,
-- persist a draft without an explicit user save,
-- submit a request without the normal human action,
-- make the final approval decision.
+- authorize users or broaden document access,
+- bypass publication/effective-date filters,
+- choose approval authority,
+- change deterministic workflow routing,
+- publish policies autonomously,
+- make approval or fulfillment decisions.
 
-The deterministic form schema, authorization service and workflow engine remain the
-sources of truth.
+When accessible evidence does not meet the grounding threshold, the assistant must return an explicit insufficient-evidence response rather than fabricate a policy answer.
 
 ## Existing hardening backlog
 
 Secure-cookie refresh transport, immediate access-token revocation/rate limiting,
-dependency remediation, TLS/backups, retention/redaction, malware scanning and broader
-security/load testing remain later hardening work.
+dependency remediation, TLS/backups, retention/redaction, malware scanning, production
+embedding/model quality evaluation and broader security/load testing remain later work.
 
 ## Next
 
-After PR #16 is merged, implement **Phase 11 / M8 Policy RAG**: pgvector-backed policy
-chunks, permission/effective-date filtering before model context, grounded answers with
-citations and explicit insufficient-evidence behavior.
-
-Do not begin RAG by bypassing access scope or treating the model as policy authority.
+After PR #18 is final-green and merged, implement **Phase 12 / Admin configuration**:
+request-type version editor, ordered workflow-step editor, role/service-team administration
+and policy publish/retire management while preserving immutable published history.
