@@ -31,6 +31,27 @@ export type ApiServiceRequest = {
   requester: ApiUser;
 };
 
+export type PolicyCitation = {
+  document_id: number;
+  chunk_id: number;
+  title: string;
+  version: string;
+  source_name: string | null;
+  page: number | null;
+  section: string | null;
+  score: number;
+};
+
+export type PolicyAnswer = {
+  answer: string;
+  citations: PolicyCitation[];
+  grounded: boolean;
+  insufficient_evidence: boolean;
+  provider: string;
+  model: string;
+  latency_ms: number;
+};
+
 export class ApiError extends Error {
   status: number;
   detail: unknown;
@@ -111,13 +132,12 @@ export async function askPolicyAssistant(
   question: string,
   requestReference?: string,
 ) {
-  return apiRequest<{
-    answer: string;
-    citations: { title: string; version: string; score: number }[];
-    grounded: boolean;
-  }>("/assistant/chat", {
+  const effectiveQuestion = requestReference
+    ? `${question}\n\nRequest reference context: ${requestReference}`
+    : question;
+  return apiRequest<PolicyAnswer>("/ai/knowledge/ask", {
     method: "POST",
-    body: JSON.stringify({ question, request_reference: requestReference }),
+    body: JSON.stringify({ question: effectiveQuestion }),
   }, token);
 }
 

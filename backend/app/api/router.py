@@ -13,6 +13,7 @@ from app.api.routes import (
     drafts,
     fulfillment,
     integrations,
+    knowledge,
     notifications,
     requests,
     workflows,
@@ -31,6 +32,7 @@ api_router.include_router(drafts.router, prefix="/requests/drafts", tags=["Reque
 api_router.include_router(requests.router, prefix="/requests", tags=["Service requests"])
 api_router.include_router(catalog.router, prefix="/catalog", tags=["Request catalog"])
 api_router.include_router(ai_intake.router, prefix="/ai/intake", tags=["AI intake"])
+api_router.include_router(knowledge.router, prefix="/ai/knowledge", tags=["Policy RAG"])
 api_router.include_router(assistant.router, prefix="/assistant", tags=["AI assistant"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
 api_router.include_router(automation.router, prefix="/automation", tags=["Automation monitoring"])

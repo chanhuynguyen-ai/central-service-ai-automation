@@ -11,10 +11,10 @@ permissions:
 jobs:
   workflow-postgres:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 18
     services:
       postgres:
-        image: postgres:16-alpine
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_DB: centralops_workflow_test
           POSTGRES_USER: centralops
@@ -52,4 +52,7 @@ jobs:
         working-directory: backend
       - name: Verify M5 final queueing and concurrent service claims
         run: uv run python -m app.db.verify_fulfillment_concurrency
+        working-directory: backend
+      - name: Verify pgvector policy storage and distance operator
+        run: uv run python -m app.db.verify_policy_rag
         working-directory: backend

@@ -47,6 +47,10 @@ jobs:
         run: uv run --no-project --with playwright==1.61.0 python scripts/m6_browser_smoke.py
       - name: Exercise M7 AI-assisted intake and explicit human review
         run: uv run --no-project --with playwright==1.61.0 python scripts/m7_browser_smoke.py
+      - name: Seed policy knowledge and exercise M8 grounded assistant
+        run: |
+          docker compose exec -T api python -m app.db.seed_policies
+          uv run --no-project --with playwright==1.61.0 python scripts/m8_policy_rag_browser_smoke.py
       - name: Save browser screenshots
         if: always()
         uses: actions/upload-artifact@v4

@@ -1,6 +1,6 @@
 # Implementation Status
 
-**Updated:** 2026-09-06 - M7 AI-assisted request intake implementation.
+**Updated:** 2026-09-07 - M8 permission-aware policy RAG implementation.
 
 The source-of-truth design remains in `docs/project/`. This map separates verified
 portfolio functionality from production readiness. Exact checkpoints are recorded in
@@ -17,9 +17,9 @@ portfolio functionality from production readiness. Exact checkpoints are recorde
 | Phase 7 / M5 | Exactly-one fulfillment work item after final approval, team queue, assignment/start/wait/resume/resolve/close and aggregate/timeline/audit propagation | SLA-at-risk semantics deferred to Phase 13; richer staffing UX remains |
 | Phase 8 | Request attachment metadata + MinIO/S3 bytes, bounded presigned upload, authorized short-lived download, visibility and completion verification | Malware scanning, trusted checksum, retention/deletion and multipart files remain |
 | Phase 9 / M6 | PostgreSQL notification intent, recipient-scoped in-app notifications, Redis/Dramatiq email worker, Mailpit dev adapter, persisted retry/backoff and browser notification center | Production email provider/idempotency, push/Teams/Slack, realtime SSE/WebSocket and preferences remain |
-| **Phase 10 / M7** | **Published-catalog classification, schema-bound extraction, deterministic missing-field/clarification flow, editable AI draft UX and 30-case evaluation corpus** | Final PR verification is still required; production provider quality/cost/redaction evaluation remains |
-| Phase 11 / M8 | Legacy lexical retrieval/citations only | Ingestion, embeddings, pgvector, permission-aware RAG and evaluation |
-| Phase 12 | Backend catalog/workflow version publishing APIs | Full admin configuration/user-role-policy UI |
+| Phase 10 / M7 | Published-catalog classification, schema-bound extraction, deterministic missing-field/clarification flow, editable AI draft UX and 30-case evaluation corpus; merged in PR #16 | Production provider quality/cost/redaction evaluation remains |
+| **Phase 11 / M8** | **Versioned policy documents, pgvector chunks, pre-retrieval permission/effective-date filtering, grounded citations, insufficient-evidence handling and dedicated Knowledge UI in PR #18** | Exact-head CI/PostgreSQL/Chromium verification is required before merge; production embedding/model evaluation remains |
+| Phase 12 | Backend catalog/workflow version publishing APIs already exist in part | Full admin configuration UI, role/service-team management, and policy publish/retire management |
 | Phase 13 | Fixed prototype workflow deadline only | Business calendar, SLA-at-risk definition, scheduled checks and escalation |
 | Phase 14 | Legacy summary/feed and illustrative charts | Governed approval/fulfillment analytics and real BI evidence |
 | Phases 15-16 | CI, migrations, PostgreSQL races and Docker/Chromium smoke | Dependency remediation, failure/load/security review and deployment hardening |
@@ -37,6 +37,13 @@ Employee
   -> requester-visible timeline/audit
   -> durable in-app notification intent
   -> asynchronous email delivery/retry
+
+Policy question
+  -> authenticated user
+  -> published/effective/access-scope filter
+  -> pgvector similarity retrieval
+  -> grounded answer + evidence citations
+  -> explicit insufficient-evidence result when support is weak
 ```
 
 M7 does not create an autonomous path around the product. AI classification is limited
@@ -45,10 +52,16 @@ validator, missing fields come from the immutable published schema, and every su
 requires employee review before persistence. Authorization and approval routing remain
 server-side deterministic decisions.
 
-The deterministic local/mock path is used for CI and repeatable demos; external Ollama
-or OpenAI-compatible providers still require separate real-model quality, privacy,
-latency and cost evaluation before any production claim.
+M8 applies the same governance principle to policy lookup. Document status, effective
+dates and access scope are enforced before candidate chunks can enter model context.
+The model cannot broaden access or turn retrieved text into approval authority. The UI
+keeps citations visually distinct from generated answers and shows an explicit warning
+when accessible evidence is insufficient.
 
-Next vertical slice after M7 is final-green and merged: **Phase 11 / M8 policy RAG**.
-Retrieval must filter by access scope/effective policy state before chunks enter model
-context and must support explicit insufficient-evidence responses with citations.
+The deterministic local/mock path is used for CI and repeatable demos. External Ollama
+or OpenAI-compatible providers still require separate real-model quality, privacy,
+latency, embedding and cost evaluation before any production claim.
+
+Next vertical slice after PR #18 is final-green and merged: **Phase 12 / Admin
+configuration**. Start with structured request-type/workflow/policy management; keep
+published versions immutable and do not build a drag-drop BPMN canvas for the MVP.

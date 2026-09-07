@@ -54,6 +54,7 @@ def login(client: TestClient, role: str = "employee") -> dict[str, str]:
         "employee2": ("other.employee@centralops.demo", "Employee123!"),
         "approver": ("approver@centralops.demo", "Approver123!"),
         "admin": ("admin@centralops.demo", "Admin123!"),
+        "auditor": ("auditor@centralops.demo", "Auditor123!"),
     }
     email, password = credentials[role]
     response = client.post("/api/v1/auth/login", json={"email": email, "password": password})
