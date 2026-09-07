@@ -85,6 +85,32 @@ def test_employee_sees_only_published_catalog_entries(client: TestClient) -> Non
     assert catalog.json()[0]["published_version"]["version"] == 1
 
 
+def test_admin_catalog_lists_unpublished_and_inactive_request_types(client: TestClient) -> None:
+    admin_headers = login(client, "admin")
+    employee_headers = login(client, "employee")
+
+    first = client.post(
+        "/api/v1/catalog/request-types",
+        headers=admin_headers,
+        json={"code": "IT_ADMIN_DRAFT", "category": "IT", "is_active": True},
+    )
+    assert first.status_code == 201
+    second = client.post(
+        "/api/v1/catalog/request-types",
+        headers=admin_headers,
+        json={"code": "HR_INACTIVE", "category": "HR", "is_active": False},
+    )
+    assert second.status_code == 201
+
+    admin_listing = client.get("/api/v1/catalog/admin/request-types", headers=admin_headers)
+    assert admin_listing.status_code == 200
+    codes = {item["code"] for item in admin_listing.json()}
+    assert {"IT_ADMIN_DRAFT", "HR_INACTIVE"}.issubset(codes)
+
+    forbidden = client.get("/api/v1/catalog/admin/request-types", headers=employee_headers)
+    assert forbidden.status_code == 403
+
+
 def test_employee_cannot_mutate_request_catalog(client: TestClient) -> None:
     employee_headers = login(client, "employee")
 
