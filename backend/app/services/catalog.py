@@ -117,6 +117,17 @@ def publish_request_type_version(
     return target
 
 
+def list_request_types_for_admin(db: Session) -> list[RequestType]:
+    """Return every logical request type, including inactive/unpublished entries.
+
+    Employee catalog reads intentionally remain restricted to active published
+    versions. Admin configuration needs the complete logical catalog so drafts
+    and inactive definitions can be reviewed without weakening public catalog
+    visibility rules.
+    """
+    return db.query(RequestType).order_by(RequestType.category.asc(), RequestType.code.asc()).all()
+
+
 def list_request_type_versions(db: Session, request_type_id: int) -> list[RequestTypeVersion]:
     if not db.get(RequestType, request_type_id):
         raise CatalogNotFoundError("Request type not found")
