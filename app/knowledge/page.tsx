@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { ArrowLeft, Bot, FileText, ShieldCheck, Sparkles } from "lucide-react";
 import Link from "next/link";
 
@@ -13,16 +13,13 @@ const INITIAL_MESSAGE =
   "Ask about an internal policy. Answers are generated only from policy evidence you are allowed to access.";
 
 export default function KnowledgePage() {
-  const [token, setToken] = useState("");
+  const [token] = useState(() =>
+    typeof window === "undefined" ? "" : getStoredSession()?.accessToken ?? "",
+  );
   const [question, setQuestion] = useState("");
   const [result, setResult] = useState<PolicyAnswer | null>(null);
   const [message, setMessage] = useState(INITIAL_MESSAGE);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const stored = getStoredSession();
-    if (stored) setToken(stored.accessToken);
-  }, []);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
