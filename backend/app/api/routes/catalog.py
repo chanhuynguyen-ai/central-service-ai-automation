@@ -23,6 +23,7 @@ from app.services.catalog import (
     create_request_type_version,
     list_published_catalog,
     list_request_type_versions,
+    list_request_types_for_admin,
     publish_request_type_version,
     update_request_type,
     update_request_type_version,
@@ -56,6 +57,14 @@ def list_catalog(
         )
         for request_type, version in list_published_catalog(db)
     ]
+
+
+@router.get("/admin/request-types", response_model=list[RequestTypeOut])
+def list_admin_request_types(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_roles("ADMIN")),
+) -> list[RequestTypeOut]:
+    return [RequestTypeOut.model_validate(item) for item in list_request_types_for_admin(db)]
 
 
 @router.post(
